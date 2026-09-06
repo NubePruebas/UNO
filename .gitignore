@@ -1,0 +1,4 @@
+node_modules
+dist
+server/data/partidas.json
+.DS_Store
