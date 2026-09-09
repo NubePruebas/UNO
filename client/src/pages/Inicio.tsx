@@ -1,9 +1,28 @@
 import { useEffect, useState } from 'react';
 import { ModalReglas } from '../components/ModalReglas';
+import { TogglesReglas } from '../components/TogglesReglas';
 import { leerHistorial } from '../juego/historial';
 import { setSonidoActivo, sonidoActivo } from '../juego/sonidos';
 import { api, salasLan, type SalaLan } from '../socket';
-import type { NivelBot, Sesion } from '../types';
+import { REGLAS_DEFAULT, type NivelBot, type ReglasCasa, type Sesion } from '../types';
+
+const KEY_REGLAS = 'kroma.reglasCasa';
+
+function leerReglasCasa(): ReglasCasa {
+  try {
+    const raw = localStorage.getItem(KEY_REGLAS);
+    if (!raw) return { ...REGLAS_DEFAULT };
+    const o = JSON.parse(raw) as Partial<ReglasCasa>;
+    return {
+      apilarMas: Boolean(o.apilarMas),
+      robarHastaJugar: Boolean(o.robarHastaJugar),
+      jumpIn: Boolean(o.jumpIn),
+      sieteCero: Boolean(o.sieteCero),
+    };
+  } catch {
+    return { ...REGLAS_DEFAULT };
+  }
+}
 
 type Vista = 'titulo' | 'jugar' | 'crear' | 'unirse' | 'reanudar' | 'rapida' | 'opciones';
 
@@ -48,6 +67,7 @@ export function Inicio({
   const [pin, setPin] = useState('');
   const [nivel, setNivel] = useState<NivelBot>('medio');
   const [bots, setBots] = useState(1);
+  const [casa, setCasa] = useState<ReglasCasa>(leerReglasCasa);
   const [localError, setLocalError] = useState('');
   const [cargando, setCargando] = useState(false);
   const [reglas, setReglas] = useState(false);
@@ -113,9 +133,14 @@ export function Inicio({
   async function rapida() {
     setLocalError('');
     setCargando(true);
-    const r = await api.partidaRapida(nombre.trim(), nivel, bots);
+    localStorage.setItem(KEY_REGLAS, JSON.stringify(casa));
+    const r = await api.partidaRapida(nombre.trim(), nivel, bots, casa);
     setCargando(false);
     entrarCon(r);
+  }
+
+  function toggleCasa(key: keyof ReglasCasa) {
+    setCasa((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   const nombreOk = nombre.trim().length >= 2;
@@ -129,11 +154,13 @@ export function Inicio({
         <span className="carta-deco verde">⇄</span>
       </div>
 
-      <div className="marca">
-        <p className="marca-sello">EN LÍNEA</p>
-        <h1>KROMA</h1>
-        <p>Cuatro colores. Juega con tus amigos.</p>
-      </div>
+      {(vista === 'titulo' || vista === 'jugar') && (
+        <div className={`marca ${vista === 'titulo' ? '' : 'compacta'}`}>
+          <p className="marca-sello">EN LÍNEA</p>
+          <h1>KROMA</h1>
+          {vista === 'titulo' && <p>Cuatro colores. Juega con tus amigos.</p>}
+        </div>
+      )}
 
       {vista === 'titulo' && (
         <nav className="menu-principal">
@@ -325,6 +352,8 @@ export function Inicio({
               </button>
             ))}
           </div>
+          <p className="hint">Reglas de esta partida</p>
+          <TogglesReglas valor={casa} onToggle={toggleCasa} />
           <button type="submit" className="btn primario" disabled={cargando || !nombreOk}>
             ¡A jugar!
           </button>
@@ -360,7 +389,7 @@ export function Inicio({
         </div>
       )}
 
-      <p className="pie-menu">Primera a 500 puntos · 2 a 8 jugadores</p>
+      {vista === 'titulo' && <p className="pie-menu">Primera a 500 puntos · 2 a 8 jugadores</p>}
       {reglas && <ModalReglas onCerrar={() => setReglas(false)} />}
     </div>
   );

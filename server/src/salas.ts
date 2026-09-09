@@ -97,12 +97,22 @@ export class GestorSalas {
     socket.on('iniciarPartida', (_p: unknown, ack?: Function) => {
       ackWrap(() => this.iniciar(socket), ack);
     });
-    socket.on('partidaRapida', (payload: { nombre: string; nivel?: NivelBot; bots?: number }, ack?: Function) => {
-      ackWrap(
-        () => this.partidaRapida(String(payload?.nombre || '').trim(), payload?.nivel, socket, payload?.bots),
-        ack,
-      );
-    });
+    socket.on(
+      'partidaRapida',
+      (payload: { nombre: string; nivel?: NivelBot; bots?: number; reglas?: Partial<ReglasCasa> }, ack?: Function) => {
+        ackWrap(
+          () =>
+            this.partidaRapida(
+              String(payload?.nombre || '').trim(),
+              payload?.nivel,
+              socket,
+              payload?.bots,
+              payload?.reglas,
+            ),
+          ack,
+        );
+      },
+    );
     socket.on('actualizarReglas', (payload: Partial<ReglasCasa>, ack?: Function) => {
       ackWrap(() => this.actualizarReglas(socket, payload), ack);
     });
@@ -185,10 +195,25 @@ export class GestorSalas {
     return { ok: true, partidaId: id, jugadorId: jugador.id, codigo, pin: jugador.pin };
   }
 
-  private partidaRapida(nombre: string, nivel: NivelBot | undefined, socket: Socket, bots?: number) {
+  private aplicarReglas(partida: EstadoPartida, payload?: Partial<ReglasCasa>) {
+    const r = partida.reglas;
+    if (typeof payload?.apilarMas === 'boolean') r.apilarMas = payload.apilarMas;
+    if (typeof payload?.robarHastaJugar === 'boolean') r.robarHastaJugar = payload.robarHastaJugar;
+    if (typeof payload?.jumpIn === 'boolean') r.jumpIn = payload.jumpIn;
+    if (typeof payload?.sieteCero === 'boolean') r.sieteCero = payload.sieteCero;
+  }
+
+  private partidaRapida(
+    nombre: string,
+    nivel: NivelBot | undefined,
+    socket: Socket,
+    bots?: number,
+    reglas?: Partial<ReglasCasa>,
+  ) {
     const creada = this.crearSala(nombre, socket);
     if (!creada.ok || !creada.partidaId) return creada;
     const partida = this.partidas[creada.partidaId];
+    this.aplicarReglas(partida, reglas);
     const nv: NivelBot = ['facil', 'medio', 'dificil'].includes(String(nivel)) ? (nivel as NivelBot) : 'medio';
     const nBots = Math.min(3, Math.max(1, Math.floor(Number(bots) || 1)));
     for (let i = 0; i < nBots; i++) {
@@ -350,11 +375,7 @@ export class GestorSalas {
     const ctx = this.contextoHost(socket);
     if (!ctx.ok) return ctx;
     if (ctx.partida.fase !== 'lobby') return { ok: false, error: 'Las reglas se eligen en el lobby.' };
-    const r = ctx.partida.reglas;
-    if (typeof payload.apilarMas === 'boolean') r.apilarMas = payload.apilarMas;
-    if (typeof payload.robarHastaJugar === 'boolean') r.robarHastaJugar = payload.robarHastaJugar;
-    if (typeof payload.jumpIn === 'boolean') r.jumpIn = payload.jumpIn;
-    if (typeof payload.sieteCero === 'boolean') r.sieteCero = payload.sieteCero;
+    this.aplicarReglas(ctx.partida, payload);
     this.persistir();
     this.emitir(ctx.partida);
     return { ok: true };

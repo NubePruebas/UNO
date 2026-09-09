@@ -26,9 +26,29 @@ export function abanico(i: number, n: number): { rot: number; y: number } {
   if (n <= 1) return { rot: 0, y: 0 };
   const t = i / (n - 1) - 0.5;
   return {
-    rot: t * Math.min(52, 10 + n * 3.6),
-    y: Math.abs(t) * Math.min(22, 6 + n),
+    rot: t * Math.min(28, 8 + n * 2),
+    y: Math.abs(t) * Math.min(18, 5 + n * 0.7),
   };
+}
+
+/** Solape y escala para ver cada carta, sin scroll. */
+export function layoutMano(n: number, ancho: number, cartaW: number): { solape: number; escala: number } {
+  if (n <= 1) return { solape: 0, escala: 1 };
+  if (ancho < 80) return { solape: Math.round(cartaW * 0.25), escala: 1 };
+  const visibleMin = Math.round(cartaW * 0.5);
+  const solapeIdeal = Math.round(cartaW * 0.2);
+  const maxSolape = cartaW - visibleMin;
+  const disponible = Math.max(cartaW, ancho - 24);
+  const anchoIdeal = cartaW + (n - 1) * (cartaW - solapeIdeal);
+  if (anchoIdeal <= disponible) {
+    return { solape: solapeIdeal, escala: 1 };
+  }
+  const solape = cartaW - (disponible - cartaW) / (n - 1);
+  if (solape <= maxSolape) {
+    return { solape, escala: 1 };
+  }
+  const anchoMin = cartaW + (n - 1) * visibleMin;
+  return { solape: maxSolape, escala: Math.min(1, disponible / anchoMin) };
 }
 
 export function asientosRivales(n: number): { left: string; top: string }[] {

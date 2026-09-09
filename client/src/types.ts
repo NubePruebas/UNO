@@ -96,6 +96,13 @@ export interface Sesion {
 export const COLORES: ColorCarta[] = ['rojo', 'amarillo', 'verde', 'azul'];
 export const PUNTOS_META = 500;
 
+export const REGLAS_DEFAULT: ReglasCasa = {
+  apilarMas: false,
+  robarHastaJugar: false,
+  jumpIn: false,
+  sieteCero: false,
+};
+
 export const REGLAS_LABEL: { key: keyof ReglasCasa; titulo: string; texto: string }[] = [
   { key: 'apilarMas', titulo: 'Apilar +2 / +4', texto: 'Puedes responder un +2 con otro +2 (o un +4 con +4) y la pila crece.' },
   { key: 'robarHastaJugar', titulo: 'Robar hasta poder', texto: 'Si no tienes carta legal, tomas del mazo hasta que sí.' },

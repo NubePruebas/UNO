@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CartaVista, ChipColor } from '../components/CartaVista';
 import { ChatPanel } from '../components/ChatPanel';
 import { ModalReglas } from '../components/ModalReglas';
 import { TutorialMesa, tutorialPendiente } from '../components/TutorialMesa';
 import { guardarHistorial } from '../juego/historial';
 import { cartaIdentica, cartaLegal } from '../juego/legal';
-import { abanico, asientosRivales, ordenarMano } from '../juego/ordenar';
+import { abanico, asientosRivales, ordenarMano, layoutMano } from '../juego/ordenar';
 import { sonido } from '../juego/sonidos';
 import { api } from '../socket';
 import { COLORES, PUNTOS_META, type Carta, type ColorCarta, type EstadoPublico } from '../types';
@@ -122,6 +122,31 @@ export function Mesa({
   }, [segsTurno, miTurno]);
 
   const mano = useMemo(() => ordenarMano(estado.tuMano), [estado.tuMano]);
+  const manoRef = useRef<HTMLElement>(null);
+  const [solape, setSolape] = useState(18);
+  const [escalaMano, setEscalaMano] = useState(1);
+
+  useLayoutEffect(() => {
+    const el = manoRef.current;
+    if (!el) return;
+    const medir = () => {
+      const n = mano.length;
+      if (n < 2) {
+        setSolape(0);
+        setEscalaMano(1);
+        return;
+      }
+      const carta = el.querySelector('.carta') as HTMLElement | null;
+      const w = carta?.offsetWidth || 86;
+      const { solape: s, escala } = layoutMano(n, el.clientWidth, w);
+      setSolape(s);
+      setEscalaMano(escala);
+    };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [mano.length]);
 
   const jugables = useMemo(() => {
     const ids = new Set<string>();
@@ -349,7 +374,13 @@ export function Mesa({
         </div>
       )}
 
-      <section className="mano-abanico" aria-label="Tu mano">
+      <section
+        ref={manoRef}
+        className="mano-abanico"
+        aria-label="Tu mano"
+        style={{ '--solape': `${solape}px`, '--mano-escala': String(escalaMano) } as CSSProperties}
+      >
+        <div className="mano-abanico-inner">
         {mano.map((c, i) => {
           const { rot, y } = abanico(i, mano.length);
           return (
@@ -373,6 +404,7 @@ export function Mesa({
             </div>
           );
         })}
+        </div>
       </section>
 
       <footer className="acciones">
@@ -388,7 +420,7 @@ export function Mesa({
         {estado.log
           .slice()
           .reverse()
-          .slice(0, 4)
+          .slice(0, 2)
           .map((l) => (
             <p key={l.id}>{l.texto}</p>
           ))}

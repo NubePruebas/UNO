@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../socket';
 import type { MensajeChat } from '../types';
 
@@ -12,12 +12,7 @@ export function ChatPanel({
   onError: (m: string) => void;
 }) {
   const [texto, setTexto] = useState('');
-  const caja = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = caja.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [mensajes.length]);
+  const visibles = mensajes.slice(-6);
 
   async function enviar() {
     const t = texto.trim();
@@ -30,9 +25,9 @@ export function ChatPanel({
   return (
     <div className="chat">
       <h3>Chat</h3>
-      <div className="chat-lista" ref={caja}>
-        {mensajes.length === 0 && <p className="muted">Todavía no hay mensajes.</p>}
-        {mensajes.map((m) => (
+      <div className="chat-lista">
+        {visibles.length === 0 && <p className="muted">Todavía no hay mensajes.</p>}
+        {visibles.map((m) => (
           <p key={m.id} className={m.jugadorId === tuId ? 'mio' : ''}>
             <strong>{m.nombre}:</strong> {m.texto}
           </p>

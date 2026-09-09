@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { ChatPanel } from '../components/ChatPanel';
 import { ModalReglas } from '../components/ModalReglas';
 import { QrSala } from '../components/QrSala';
+import { TogglesReglas } from '../components/TogglesReglas';
 import { api } from '../socket';
-import { PUNTOS_META, REGLAS_LABEL, type EstadoPublico, type NivelBot, type ReglasCasa } from '../types';
+import { PUNTOS_META, type EstadoPublico, type NivelBot, type ReglasCasa } from '../types';
 
 const NIVELES: { id: NivelBot; etiqueta: string }[] = [
   { id: 'facil', etiqueta: 'Fácil' },
@@ -23,6 +24,7 @@ export function Lobby({
   const soyHost = estado.hostId === estado.tuId;
   const [nivel, setNivel] = useState<NivelBot>('medio');
   const [reglas, setReglas] = useState(false);
+  const [chatOn, setChatOn] = useState(false);
   const [copiado, setCopiado] = useState('');
   const linkSala = `${window.location.origin}?sala=${estado.codigo}`;
 
@@ -48,6 +50,9 @@ export function Lobby({
         <div className="fila-bots">
           <button type="button" className="btn ghost" onClick={() => setReglas(true)}>
             Reglas
+          </button>
+          <button type="button" className={`btn ghost ${chatOn ? 'activo' : ''}`} onClick={() => setChatOn((v) => !v)}>
+            Chat
           </button>
           <button type="button" className="btn mini" onClick={() => void api.salirSala().then(onSalir)}>
             Salir
@@ -105,15 +110,8 @@ export function Lobby({
 
           {soyHost ? (
             <>
-              <h3 className="subtit">Reglas de casa</h3>
-              <div className="toggles">
-                {REGLAS_LABEL.map((r) => (
-                  <label key={r.key} className={`toggle ${estado.reglas[r.key] ? 'on' : ''}`}>
-                    <input type="checkbox" checked={estado.reglas[r.key]} onChange={() => void toggle(r.key)} />
-                    {r.titulo}
-                  </label>
-                ))}
-              </div>
+              <h3 className="subtit">Reglas de esta partida</h3>
+              <TogglesReglas valor={estado.reglas} onToggle={(k) => void toggle(k)} />
               <div className="fila-bots">
                 {NIVELES.map((n) => (
                   <button
@@ -142,7 +140,11 @@ export function Lobby({
             <p className="hint">Esperando al anfitrión. Primera a {PUNTOS_META} puntos.</p>
           )}
         </div>
-        <ChatPanel mensajes={estado.chat} tuId={estado.tuId} onError={onError} />
+        {chatOn && (
+          <div className="chat-cajon lobby-chat">
+            <ChatPanel mensajes={estado.chat} tuId={estado.tuId} onError={onError} />
+          </div>
+        )}
       </div>
       {reglas && <ModalReglas reglas={estado.reglas} onCerrar={() => setReglas(false)} />}
     </div>

@@ -56,8 +56,8 @@ export const api = {
   echarJugador: (jugadorId: string) => emitir<Respuesta>('echarJugador', { jugadorId }),
   salirSala: () => emitir<Respuesta>('salirSala'),
   iniciarPartida: () => emitir<Respuesta>('iniciarPartida'),
-  partidaRapida: (nombre: string, nivel?: NivelBot, bots?: number) =>
-    emitir<Respuesta>('partidaRapida', { nombre, nivel, bots }),
+  partidaRapida: (nombre: string, nivel?: NivelBot, bots?: number, reglas?: Partial<ReglasCasa>) =>
+    emitir<Respuesta>('partidaRapida', { nombre, nivel, bots, reglas }),
   actualizarReglas: (reglas: Partial<ReglasCasa>) => emitir<Respuesta>('actualizarReglas', reglas),
   jugarCarta: (cartaId: string, color?: ColorCarta, objetivoId?: string) =>
     emitir<Respuesta>('jugarCarta', { cartaId, color, objetivoId }),
