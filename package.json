@@ -11,9 +11,3 @@
     "start": "npm --prefix server start"
   }
 }
-    "dev": "node scripts/dev.js",
-    "test": "npm --prefix server test",
-    "build": "npm --prefix client install && npm --prefix server install && npm --prefix client run build && npm --prefix server run build",
-    "start": "npm --prefix server start"
-  }
-}
