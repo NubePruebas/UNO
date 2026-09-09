@@ -80,6 +80,9 @@ export interface EstadoPublico {
   log: EventoLog[];
   maxJugadores: number;
   cartasMazo: number;
+  descarteVisible: Carta[];
+  pensandoId?: string;
+  rondaAutoEn?: number;
 }
 
 export interface Sesion {
@@ -94,8 +97,8 @@ export const COLORES: ColorCarta[] = ['rojo', 'amarillo', 'verde', 'azul'];
 export const PUNTOS_META = 500;
 
 export const REGLAS_LABEL: { key: keyof ReglasCasa; titulo: string; texto: string }[] = [
-  { key: 'apilarMas', titulo: 'Apilar +2 / +4', texto: 'Podés responder un +2 con otro +2 (o un +4 con +4) y la pila crece.' },
-  { key: 'robarHastaJugar', titulo: 'Robar hasta poder', texto: 'Si no tenés carta legal, tomás del mazo hasta que sí.' },
-  { key: 'jumpIn', titulo: 'Jump-in', texto: 'Si tenés exactamente la misma carta que está arriba, podés tirarla aunque no sea tu turno.' },
+  { key: 'apilarMas', titulo: 'Apilar +2 / +4', texto: 'Puedes responder un +2 con otro +2 (o un +4 con +4) y la pila crece.' },
+  { key: 'robarHastaJugar', titulo: 'Robar hasta poder', texto: 'Si no tienes carta legal, tomas del mazo hasta que sí.' },
+  { key: 'jumpIn', titulo: 'Entrar igual', texto: 'Si tienes exactamente la misma carta que está arriba, puedes tirarla aunque no sea tu turno.' },
   { key: 'sieteCero', titulo: '7 y 0', texto: 'El 7 intercambia tu mano con otro jugador. El 0 rota todas las manos.' },
 ];

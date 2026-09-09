@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Inicio } from './pages/Inicio';
 import { Lobby } from './pages/Lobby';
 import { Mesa } from './pages/Mesa';
-import { api, getSocket, infoLan } from './socket';
+import { api, getSocket } from './socket';
 import type { EstadoPublico, Sesion } from './types';
 
-const KEY = 'uno.sesion';
-const KEY_DAL = 'uno.daltonico';
+const KEY = 'kroma.sesion';
+const KEY_DAL = 'kroma.daltonico';
 
 function leerSesion(): Sesion | null {
   try {
@@ -26,24 +26,27 @@ export function App() {
   const [estado, setEstado] = useState<EstadoPublico | null>(null);
   const [sesion, setSesion] = useState<Sesion | null>(leerSesion);
   const [error, setError] = useState('');
-  const [ip, setIp] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
+  const [sinServidor, setSinServidor] = useState(false);
   const [daltonico, setDaltonico] = useState(() => localStorage.getItem(KEY_DAL) === '1');
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const sala = params.get('sala');
-    if (sala) localStorage.setItem('uno.salaHint', sala);
+    if (sala) localStorage.setItem('kroma.salaHint', sala);
   }, []);
 
   useEffect(() => {
-    void infoLan().then((d) => setIp(d.ip));
     const s = getSocket();
+    const espera = window.setTimeout(() => {
+      if (!s.connected) setSinServidor(true);
+    }, 7000);
     const onEstado = (e: EstadoPublico) => {
       setEstado(e);
       setError('');
     };
     const onConnect = () => {
+      setSinServidor(false);
       const guardada = leerSesion();
       if (guardada) {
         void api.reconectar(guardada.partidaId, guardada.jugadorId).then((r) => {
@@ -58,12 +61,16 @@ export function App() {
         setListo(true);
       }
     };
+    const onError = () => setSinServidor(true);
     s.on('estado', onEstado);
     s.on('connect', onConnect);
+    s.on('connect_error', onError);
     if (s.connected) onConnect();
     return () => {
+      window.clearTimeout(espera);
       s.off('estado', onEstado);
       s.off('connect', onConnect);
+      s.off('connect_error', onError);
     };
   }, []);
 
@@ -88,7 +95,12 @@ export function App() {
   if (!listo) {
     return (
       <div className="pantalla inicio">
-        <p>Conectando al servidor…</p>
+        <p>{sinServidor ? 'No se pudo conectar al servidor. Recarga la página.' : 'Conectando al servidor…'}</p>
+        {sinServidor && (
+          <button type="button" className="btn primario" onClick={() => window.location.reload()}>
+            Reintentar
+          </button>
+        )}
       </div>
     );
   }
@@ -103,7 +115,7 @@ export function App() {
           <p>Entrando a la sala…</p>
         </div>
       ) : estado.fase === 'lobby' ? (
-        <Lobby estado={estado} ip={ip} onError={setError} onSalir={salir} />
+        <Lobby estado={estado} onError={setError} onSalir={salir} />
       ) : (
         <Mesa
           estado={estado}

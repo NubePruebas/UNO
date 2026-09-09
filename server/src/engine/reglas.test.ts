@@ -1,0 +1,124 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { Carta, EstadoPartida, Jugador, REGLAS_DEFAULT } from '../types';
+import { cartaIdentica, cartaLegal, jugarCarta, puntosCarta } from './reglas';
+
+function carta(p: Partial<Carta> & Pick<Carta, 'id' | 'tipo'>): Carta {
+  return { color: p.color ?? 'rojo', ...p };
+}
+
+function jugador(id: string, cartas: Carta[], extra?: Partial<Jugador>): Jugador {
+  return {
+    id,
+    nombre: id,
+    esBot: false,
+    cartas,
+    conectado: true,
+    dijoUno: false,
+    pin: '1111',
+    puntos: 0,
+    ...extra,
+  };
+}
+
+function estado(p: Partial<EstadoPartida> & { jugadores: Jugador[]; descarte: Carta[] }): EstadoPartida {
+  return {
+    id: 'p',
+    codigo: 'ABCD',
+    hostId: p.jugadores[0].id,
+    mazo: [],
+    colorActual: 'rojo',
+    sentido: 1,
+    turnoIndex: 0,
+    fase: 'jugando',
+    acumuladoMas: 0,
+    turnoHasta: Date.now() + 60_000,
+    reglas: { ...REGLAS_DEFAULT },
+    chat: [],
+    log: [],
+    maxJugadores: 8,
+    creadoEn: 1,
+    actualizadoEn: Date.now(),
+    ...p,
+  };
+}
+
+test('carta legal: mismo color', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
+  const mano = [carta({ id: 'a', tipo: 'numero', valor: 9, color: 'rojo' })];
+  const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima] });
+  assert.equal(cartaLegal(mano[0], e, mano), true);
+});
+
+test('carta legal: mismo número otro color', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
+  const mano = [carta({ id: 'a', tipo: 'numero', valor: 3, color: 'azul' })];
+  const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima], colorActual: 'rojo' });
+  assert.equal(cartaLegal(mano[0], e, mano), true);
+});
+
+test('+4 ilegal si tienes el color', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
+  const mano = [
+    carta({ id: 'a', tipo: 'numero', valor: 9, color: 'rojo' }),
+    carta({ id: 'w', tipo: 'comodin_mas4', color: null }),
+  ];
+  const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima], colorActual: 'rojo' });
+  assert.equal(cartaLegal(mano[1], e, mano), false);
+});
+
+test('+4 legal si no tienes el color', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
+  const mano = [
+    carta({ id: 'a', tipo: 'numero', valor: 9, color: 'azul' }),
+    carta({ id: 'w', tipo: 'comodin_mas4', color: null }),
+  ];
+  const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima], colorActual: 'rojo' });
+  assert.equal(cartaLegal(mano[1], e, mano), true);
+});
+
+test('pila +2 solo acepta otro +2', () => {
+  const cima = carta({ id: 'c', tipo: 'mas2', color: 'rojo' });
+  const mas2 = carta({ id: 'a', tipo: 'mas2', color: 'azul' });
+  const num = carta({ id: 'b', tipo: 'numero', valor: 4, color: 'rojo' });
+  const e = estado({
+    jugadores: [jugador('yo', [mas2, num])],
+    descarte: [cima],
+    acumuladoMas: 2,
+    tipoPila: 'mas2',
+    reglas: { ...REGLAS_DEFAULT, apilarMas: true },
+  });
+  assert.equal(cartaLegal(mas2, e, [mas2, num]), true);
+  assert.equal(cartaLegal(num, e, [mas2, num]), false);
+});
+
+test('jump-in: carta idéntica', () => {
+  const a = carta({ id: 'a', tipo: 'numero', valor: 7, color: 'verde' });
+  const b = carta({ id: 'b', tipo: 'numero', valor: 7, color: 'verde' });
+  assert.equal(cartaIdentica(a, b), true);
+  assert.equal(cartaIdentica(carta({ id: 'c', tipo: 'numero', valor: 7, color: 'rojo' }), b), false);
+});
+
+test('jugar carta avanza y deja el descarte', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 2, color: 'rojo' });
+  const mano1 = [
+    carta({ id: 'a', tipo: 'numero', valor: 5, color: 'rojo' }),
+    carta({ id: 'x', tipo: 'numero', valor: 1, color: 'azul' }),
+  ];
+  const mano2 = [carta({ id: 'b', tipo: 'numero', valor: 8, color: 'azul' })];
+  const e = estado({
+    jugadores: [jugador('yo', mano1), jugador('otro', mano2)],
+    descarte: [cima],
+    turnoIndex: 0,
+  });
+  const r = jugarCarta(e, 'yo', 'a');
+  assert.equal(r.ok, true);
+  assert.equal(e.descarte[e.descarte.length - 1].id, 'a');
+  assert.equal(e.turnoIndex, 1);
+});
+
+test('puntos de cartas', () => {
+  assert.equal(puntosCarta(carta({ id: '1', tipo: 'numero', valor: 7, color: 'rojo' })), 7);
+  assert.equal(puntosCarta(carta({ id: '2', tipo: 'salto', color: 'azul' })), 20);
+  assert.equal(puntosCarta(carta({ id: '3', tipo: 'comodin_mas4', color: null })), 50);
+});

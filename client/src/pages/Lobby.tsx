@@ -13,12 +13,10 @@ const NIVELES: { id: NivelBot; etiqueta: string }[] = [
 
 export function Lobby({
   estado,
-  ip,
   onError,
   onSalir,
 }: {
   estado: EstadoPublico;
-  ip: string | null;
   onError: (m: string) => void;
   onSalir: () => void;
 }) {
@@ -26,8 +24,7 @@ export function Lobby({
   const [nivel, setNivel] = useState<NivelBot>('medio');
   const [reglas, setReglas] = useState(false);
   const [copiado, setCopiado] = useState('');
-  const puerto = window.location.port || '5174';
-  const url = ip ? `http://${ip}:${puerto}` : window.location.origin;
+  const linkSala = `${window.location.origin}?sala=${estado.codigo}`;
 
   async function copiar(texto: string, etiqueta: string) {
     try {
@@ -61,16 +58,16 @@ export function Lobby({
       <div className="lobby-grid">
         <div className="tarjeta">
           <p className="hint">
-            Misma red: <strong>{url}</strong> · código <strong>{estado.codigo}</strong>
+            Código para unirse: <strong>{estado.codigo}</strong>
           </p>
           <div className="qr-bloque">
-            <QrSala url={`${url}?sala=${estado.codigo}`} />
+            <QrSala url={linkSala} />
             <div className="qr-acciones">
               <button type="button" className="btn mini" onClick={() => void copiar(estado.codigo, 'código')}>
                 Copiar código
               </button>
-              <button type="button" className="btn mini" onClick={() => void copiar(url, 'link')}>
-                Copiar link
+              <button type="button" className="btn mini" onClick={() => void copiar(linkSala, 'enlace')}>
+                Copiar enlace
               </button>
               <p className="pin-box">
                 Tu PIN: <strong>{estado.tuPin}</strong>
@@ -78,7 +75,7 @@ export function Lobby({
                   Copiar PIN
                 </button>
               </p>
-              {copiado && <p className="ok-copia">Copié el {copiado}</p>}
+              {copiado && <p className="ok-copia">Ya copié el {copiado}</p>}
             </div>
           </div>
 
@@ -134,7 +131,7 @@ export function Lobby({
                   onClick={() => void api.agregarBot(nivel)}
                   disabled={estado.jugadores.length >= estado.maxJugadores}
                 >
-                  Sumar bot
+                  Agregar bot
                 </button>
               </div>
               <button type="button" className="btn primario" onClick={() => void api.iniciarPartida().then((r) => !r.ok && onError(r.error ?? ''))}>

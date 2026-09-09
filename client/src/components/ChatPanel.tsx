@@ -48,7 +48,7 @@ export function ChatPanel({
         <input
           value={texto}
           maxLength={80}
-          placeholder="Escribí…"
+          placeholder="Escribe…"
           onChange={(e) => setTexto(e.target.value)}
         />
         <button type="submit" className="btn mini">

@@ -40,12 +40,31 @@ function colorMasFrecuente(jugador: Jugador): ColorCarta {
   return COLORES.slice().sort((a, b) => conteo[b] - conteo[a])[0];
 }
 
+export function delayPensar(nivel: NivelBot | undefined): number {
+  const n = nivel ?? 'facil';
+  if (n === 'facil') return 700 + Math.floor(Math.random() * 700);
+  if (n === 'medio') return 1000 + Math.floor(Math.random() * 800);
+  return 1300 + Math.floor(Math.random() * 900);
+}
+
+function coloresRestantes(estado: EstadoPartida, jugador: Jugador): Record<ColorCarta, number> {
+  const total: Record<ColorCarta, number> = { rojo: 25, amarillo: 25, verde: 25, azul: 25 };
+  for (const carta of [...estado.descarte, ...jugador.cartas]) {
+    if (carta.color) total[carta.color]--;
+  }
+  return total;
+}
+
 function colorInteligente(jugador: Jugador, estado: EstadoPartida): ColorCarta {
   const mio = colorMasFrecuente(jugador);
   const desc = coloresDescartados(estado);
   const porMano: Record<ColorCarta, number> = { rojo: 0, amarillo: 0, verde: 0, azul: 0 };
   for (const c of jugador.cartas) {
     if (c.color) porMano[c.color]++;
+  }
+  if (jugador.nivelBot === 'dificil') {
+    const rest = coloresRestantes(estado, jugador);
+    return COLORES.slice().sort((a, b) => porMano[b] - porMano[a] || rest[b] - rest[a] || desc[a] - desc[b])[0] ?? mio;
   }
   return COLORES.slice().sort((a, b) => porMano[b] - porMano[a] || desc[a] - desc[b])[0] ?? mio;
 }
@@ -92,6 +111,10 @@ export function elegirJugadaBot(estado: EstadoPartida, jugador: Jugador): {
     (c) => c.color === estado.colorActual && c.tipo !== 'comodin' && c.tipo !== 'comodin_mas4',
   );
   const otros = legales.filter((c) => c.tipo === 'numero' && c.color !== estado.colorActual);
+  const rest = coloresRestantes(estado, jugador);
+  const wildsRestantes =
+    8 -
+    [...estado.descarte, ...jugador.cartas].filter((c) => c.tipo === 'comodin' || c.tipo === 'comodin_mas4').length;
 
   if (rivalConPocas && (saltos.length || mas4.length)) {
     const carta = saltos[0] ?? mas4[0];
@@ -103,11 +126,12 @@ export function elegirJugadaBot(estado: EstadoPartida, jugador: Jugador): {
     return { carta, color, objetivoId: objetivo7(estado, jugador, carta) };
   }
   if (otros.length) {
-    return { carta: otros[0], color, objetivoId: objetivo7(estado, jugador, otros[0]) };
+    const mejor = [...otros].sort((a, b) => (rest[b.color as ColorCarta] ?? 0) - (rest[a.color as ColorCarta] ?? 0))[0];
+    return { carta: mejor, color, objetivoId: objetivo7(estado, jugador, mejor) };
   }
   const comodin = legales.find((c) => c.tipo === 'comodin');
-  if (comodin) return { carta: comodin, color };
-  if (mas4.length && rivalConPocas) return { carta: mas4[0], color };
+  if (comodin && (wildsRestantes > 2 || !mas4.length)) return { carta: comodin, color };
+  if (mas4.length) return { carta: mas4[0], color };
   return { carta: legales[0], color, objetivoId: objetivo7(estado, jugador, legales[0]) };
 }
 

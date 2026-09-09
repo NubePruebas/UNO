@@ -79,6 +79,8 @@ export interface EstadoPartida {
   maxJugadores: number;
   creadoEn: number;
   actualizadoEn: number;
+  pensandoId?: string;
+  rondaAutoEn?: number;
 }
 
 export interface JugadorPublico {
@@ -126,15 +128,24 @@ export interface EstadoPublico {
   log: EventoLog[];
   maxJugadores: number;
   cartasMazo: number;
+  descarteVisible: Carta[];
+  pensandoId?: string;
+  rondaAutoEn?: number;
 }
 
 export const COLORES: ColorCarta[] = ['rojo', 'amarillo', 'verde', 'azul'];
 export const MAX_JUGADORES = 8;
+export const MAX_PARTIDAS = 80;
 export const CARTAS_INICIALES = 7;
 export const PUERTO = 3010;
 export const PUNTOS_META = 500;
 export const TURNO_MS = 60_000;
 export const UNO_MS = 8_000;
+
+export function puertoEscucha(): number {
+  const n = Number(process.env.PORT || process.env.PUERTO || PUERTO);
+  return Number.isFinite(n) && n > 0 ? n : PUERTO;
+}
 
 export const REGLAS_DEFAULT: ReglasCasa = {
   apilarMas: false,

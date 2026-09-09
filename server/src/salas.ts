@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { v4 as uuid } from 'uuid';
-import { ejecutarTurnoBot, nombreBot } from './engine/bots';
+import { ejecutarTurnoBot, nombreBot, delayPensar } from './engine/bots';
 import {
   acusarUno,
   decirUno,
@@ -20,18 +20,20 @@ import {
   EstadoPartida,
   Jugador,
   MAX_JUGADORES,
+  MAX_PARTIDAS,
   NivelBot,
   REGLAS_DEFAULT,
   ReglasCasa,
 } from './types';
-
-const RETARDO_BOT_MS = 1100;
 
 export class GestorSalas {
   private partidas: Record<string, EstadoPartida> = cargarPartidas();
   private porSocket = new Map<string, { partidaId: string; jugadorId: string }>();
   private timersBot = new Map<string, NodeJS.Timeout>();
   private timersTurno = new Map<string, NodeJS.Timeout>();
+  private timersRonda = new Map<string, NodeJS.Timeout>();
+  private creaPorIp = new Map<string, number[]>();
+  private chatPorSocket = new Map<string, number[]>();
   private io: Server;
 
   constructor(io: Server) {
@@ -95,8 +97,11 @@ export class GestorSalas {
     socket.on('iniciarPartida', (_p: unknown, ack?: Function) => {
       ackWrap(() => this.iniciar(socket), ack);
     });
-    socket.on('partidaRapida', (payload: { nombre: string; nivel?: NivelBot }, ack?: Function) => {
-      ackWrap(() => this.partidaRapida(String(payload?.nombre || '').trim(), payload?.nivel, socket), ack);
+    socket.on('partidaRapida', (payload: { nombre: string; nivel?: NivelBot; bots?: number }, ack?: Function) => {
+      ackWrap(
+        () => this.partidaRapida(String(payload?.nombre || '').trim(), payload?.nivel, socket, payload?.bots),
+        ack,
+      );
     });
     socket.on('actualizarReglas', (payload: Partial<ReglasCasa>, ack?: Function) => {
       ackWrap(() => this.actualizarReglas(socket, payload), ack);
@@ -130,7 +135,7 @@ export class GestorSalas {
   private nuevoJugador(nombre: string, socketId: string, usadosPin: string[]): Jugador {
     return {
       id: uuid(),
-      nombre,
+      nombre: limpiarNombre(nombre),
       esBot: false,
       cartas: [],
       conectado: true,
@@ -142,10 +147,17 @@ export class GestorSalas {
   }
 
   private crearSala(nombre: string, socket: Socket) {
-    if (nombre.length < 2) return { ok: false, error: 'El nombre debe tener al menos 2 letras.' };
+    const limpio = limpiarNombre(nombre);
+    if (limpio.length < 2) return { ok: false, error: 'El nombre debe tener al menos 2 letras.' };
+    if (Object.keys(this.partidas).length >= MAX_PARTIDAS) {
+      return { ok: false, error: 'El servidor está lleno. Prueba más tarde.' };
+    }
+    if (!this.puedeCrear(socket)) {
+      return { ok: false, error: 'Creaste demasiadas salas. Espera un rato.' };
+    }
     const id = uuid();
     const codigo = this.codigoUnico();
-    const jugador = this.nuevoJugador(nombre, socket.id, []);
+    const jugador = this.nuevoJugador(limpio, socket.id, []);
     const partida: EstadoPartida = {
       id,
       codigo,
@@ -173,23 +185,26 @@ export class GestorSalas {
     return { ok: true, partidaId: id, jugadorId: jugador.id, codigo, pin: jugador.pin };
   }
 
-  private partidaRapida(nombre: string, nivel: NivelBot | undefined, socket: Socket) {
+  private partidaRapida(nombre: string, nivel: NivelBot | undefined, socket: Socket, bots?: number) {
     const creada = this.crearSala(nombre, socket);
     if (!creada.ok || !creada.partidaId) return creada;
     const partida = this.partidas[creada.partidaId];
     const nv: NivelBot = ['facil', 'medio', 'dificil'].includes(String(nivel)) ? (nivel as NivelBot) : 'medio';
-    const bot: Jugador = {
-      id: uuid(),
-      nombre: nombreBot(nv, partida.jugadores.map((j) => j.nombre)),
-      esBot: true,
-      nivelBot: nv,
-      cartas: [],
-      conectado: true,
-      dijoUno: false,
-      pin: pinAleatorio(partida.jugadores.map((j) => j.pin)),
-      puntos: 0,
-    };
-    partida.jugadores.push(bot);
+    const nBots = Math.min(3, Math.max(1, Math.floor(Number(bots) || 1)));
+    for (let i = 0; i < nBots; i++) {
+      const bot: Jugador = {
+        id: uuid(),
+        nombre: nombreBot(nv, partida.jugadores.map((j) => j.nombre)),
+        esBot: true,
+        nivelBot: nv,
+        cartas: [],
+        conectado: true,
+        dijoUno: false,
+        pin: pinAleatorio(partida.jugadores.map((j) => j.pin)),
+        puntos: 0,
+      };
+      partida.jugadores.push(bot);
+    }
     repartir(partida);
     this.persistir();
     this.emitir(partida);
@@ -208,13 +223,14 @@ export class GestorSalas {
     }
 
     if (partida.fase !== 'lobby') {
-      return { ok: false, error: 'La partida ya empezó. Reanudá con el código de sala y tu PIN.' };
+      return { ok: false, error: 'La partida ya empezó. Reanuda con el código de sala y tu PIN.' };
     }
-    if (nombre.length < 2) return { ok: false, error: 'El nombre debe tener al menos 2 letras.' };
+    const limpio = limpiarNombre(nombre);
+    if (limpio.length < 2) return { ok: false, error: 'El nombre debe tener al menos 2 letras.' };
     if (partida.jugadores.length >= partida.maxJugadores) return { ok: false, error: 'La sala está llena.' };
 
     const jugador = this.nuevoJugador(
-      this.nombreUnico(partida, nombre),
+      this.nombreUnico(partida, limpio),
       socket.id,
       partida.jugadores.map((j) => j.pin),
     );
@@ -280,7 +296,7 @@ export class GestorSalas {
     const { partida } = ctx;
     const j = partida.jugadores.find((p) => p.id === jugadorId);
     if (!j) return { ok: false, error: 'No está en la sala.' };
-    if (j.id === partida.hostId) return { ok: false, error: 'No podés echar al anfitrión.' };
+    if (j.id === partida.hostId) return { ok: false, error: 'No puedes echar al anfitrión.' };
     if (soloBots && !j.esBot) return { ok: false, error: 'Eso es un jugador, no un bot.' };
     if (partida.fase !== 'lobby' && !j.esBot) {
       this.convertirABot(j);
@@ -349,7 +365,7 @@ export class GestorSalas {
     if (!ctx.ok) return ctx;
     const { partida } = ctx;
     if (partida.fase !== 'lobby') return { ok: false, error: 'Ya está en juego.' };
-    if (partida.jugadores.length < 2) return { ok: false, error: 'Hacen falta al menos 2 jugadores (podés sumar un bot).' };
+    if (partida.jugadores.length < 2) return { ok: false, error: 'Se necesitan al menos 2 jugadores (puedes agregar un bot).' };
     repartir(partida);
     this.trasJugada(partida);
     return { ok: true };
@@ -360,7 +376,10 @@ export class GestorSalas {
     if (!ctx.ok) return ctx;
     const { partida } = ctx;
     if (partida.fase !== 'finalizada') return { ok: false, error: 'La ronda todavía no termina.' };
-    if (partida.campeonId) return { ok: false, error: 'La partida ya tiene campeón. Empezá una nueva.' };
+    if (partida.campeonId) return { ok: false, error: 'La partida ya tiene campeón. Empieza una nueva.' };
+    const prev = this.timersRonda.get(partida.id);
+    if (prev) clearTimeout(prev);
+    partida.rondaAutoEn = undefined;
     repartir(partida);
     this.trasJugada(partida);
     return { ok: true };
@@ -370,6 +389,9 @@ export class GestorSalas {
     const ctx = this.contextoHost(socket);
     if (!ctx.ok) return ctx;
     const { partida } = ctx;
+    const prev = this.timersRonda.get(partida.id);
+    if (prev) clearTimeout(prev);
+    partida.rondaAutoEn = undefined;
     for (const j of partida.jugadores) j.puntos = 0;
     partida.campeonId = undefined;
     partida.ganadorId = undefined;
@@ -454,7 +476,8 @@ export class GestorSalas {
     const ctx = this.contexto(socket);
     if (!ctx.ok) return ctx;
     const limpio = texto.replace(/\s+/g, ' ').trim().slice(0, 80);
-    if (limpio.length < 1) return { ok: false, error: 'Escribí algo.' };
+    if (limpio.length < 1) return { ok: false, error: 'Escribe algo.' };
+    if (!this.puedeChatear(socket.id)) return { ok: false, error: 'Chat muy seguido. Espera un segundo.' };
     const yo = ctx.partida.jugadores.find((j) => j.id === ctx.jugadorId);
     ctx.partida.chat.push({
       id: uuid(),
@@ -490,6 +513,7 @@ export class GestorSalas {
     this.emitir(partida);
     this.programarBots(partida);
     this.programarTimerTurno(partida);
+    this.programarRonda(partida);
   }
 
   private programarTimerTurno(partida: EstadoPartida) {
@@ -512,26 +536,67 @@ export class GestorSalas {
     this.timersTurno.set(partida.id, t);
   }
 
+  private programarRonda(partida: EstadoPartida) {
+    const prev = this.timersRonda.get(partida.id);
+    if (prev) clearTimeout(prev);
+    if (partida.fase !== 'finalizada' || partida.campeonId) {
+      partida.rondaAutoEn = undefined;
+      return;
+    }
+    partida.rondaAutoEn = Date.now() + 8000;
+    this.emitir(partida);
+    const t = setTimeout(() => {
+      const actual = this.partidas[partida.id];
+      if (!actual || actual.fase !== 'finalizada' || actual.campeonId) return;
+      repartir(actual);
+      actual.rondaAutoEn = undefined;
+      this.trasJugada(actual);
+    }, 8000);
+    this.timersRonda.set(partida.id, t);
+  }
+
   private programarBots(partida: EstadoPartida) {
     const prev = this.timersBot.get(partida.id);
     if (prev) clearTimeout(prev);
+    if (partida.pensandoId) {
+      partida.pensandoId = undefined;
+    }
     if (partida.fase !== 'jugando') return;
     const hayHumanoConectado = partida.jugadores.some((j) => !j.esBot && j.conectado);
     if (!hayHumanoConectado) return;
     if (!this.tocaBot(partida)) return;
+    const actor = this.actorBot(partida);
     const desconectado = this.humanoDesconectadoEnTurno(partida);
-    const delay = desconectado ? 4000 : RETARDO_BOT_MS;
+    const delay = desconectado ? 4000 : delayPensar(actor?.nivelBot);
+    if (actor) partida.pensandoId = actor.id;
+    this.emitir(partida);
     const t = setTimeout(() => {
       const actual = this.partidas[partida.id];
       if (!actual || actual.fase !== 'jugando') return;
-      if (!this.tocaBot(actual)) return;
+      if (!this.tocaBot(actual)) {
+        actual.pensandoId = undefined;
+        this.emitir(actual);
+        return;
+      }
       ejecutarTurnoBot(actual);
+      actual.pensandoId = undefined;
       this.persistir();
       this.emitir(actual);
       this.programarBots(actual);
       this.programarTimerTurno(actual);
+      this.programarRonda(actual);
     }, delay);
     this.timersBot.set(partida.id, t);
+  }
+
+  private actorBot(partida: EstadoPartida): Jugador | undefined {
+    if (partida.pendienteIntercambioDe) {
+      return partida.jugadores.find((j) => j.id === partida.pendienteIntercambioDe);
+    }
+    if (partida.desafiarMas4) {
+      return partida.jugadores.find((j) => j.id === partida.desafiarMas4?.jugadorId);
+    }
+    return partida.jugadores[partida.turnoIndex];
   }
 
   private tocaBot(partida: EstadoPartida): boolean {
@@ -550,6 +615,41 @@ export class GestorSalas {
   private humanoDesconectadoEnTurno(partida: EstadoPartida): boolean {
     const actual = partida.jugadores[partida.turnoIndex];
     return Boolean(actual && !actual.esBot && !actual.conectado);
+  }
+
+  private puedeCrear(socket: Socket): boolean {
+    const ip = socket.handshake.address || socket.id;
+    const ahora = Date.now();
+    const lista = (this.creaPorIp.get(ip) ?? []).filter((t) => ahora - t < 10 * 60_000);
+    if (lista.length >= 8) {
+      this.creaPorIp.set(ip, lista);
+      return false;
+    }
+    lista.push(ahora);
+    this.creaPorIp.set(ip, lista);
+    return true;
+  }
+
+  private puedeChatear(socketId: string): boolean {
+    const ahora = Date.now();
+    const lista = (this.chatPorSocket.get(socketId) ?? []).filter((t) => ahora - t < 20_000);
+    if (lista.length >= 8) {
+      this.chatPorSocket.set(socketId, lista);
+      return false;
+    }
+    lista.push(ahora);
+    this.chatPorSocket.set(socketId, lista);
+    return true;
+  }
+
+  lobbies(): { codigo: string; jugadores: number; nombres: string[] }[] {
+    return Object.values(this.partidas)
+      .filter((p) => p.fase === 'lobby')
+      .map((p) => ({
+        codigo: p.codigo,
+        jugadores: p.jugadores.length,
+        nombres: p.jugadores.map((j) => j.nombre),
+      }));
   }
 
   private vincular(socket: Socket, partida: EstadoPartida, jugadorId: string) {
@@ -600,4 +700,8 @@ export class GestorSalas {
     while (usados.has(`${nombre} ${i}`)) i++;
     return `${nombre} ${i}`;
   }
+}
+
+function limpiarNombre(nombre: string): string {
+  return nombre.replace(/[\u0000-\u001f]/g, '').trim().slice(0, 16);
 }

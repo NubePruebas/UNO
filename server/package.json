@@ -1,12 +1,13 @@
 {
-  "name": "uno-lan-backend",
+  "name": "kroma-lan-backend",
   "version": "1.0.0",
-  "description": "Uno LAN - servidor Express + Socket.IO",
+  "description": "Kroma - servidor Express + Socket.IO",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only --ignore-watch data src/server.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "test": "ts-node --transpile-only src/engine/reglas.test.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ModalReglas } from '../components/ModalReglas';
+import { leerHistorial } from '../juego/historial';
 import { setSonidoActivo, sonidoActivo } from '../juego/sonidos';
-import { api } from '../socket';
+import { api, salasLan, type SalaLan } from '../socket';
 import type { NivelBot, Sesion } from '../types';
 
 type Vista = 'titulo' | 'jugar' | 'crear' | 'unirse' | 'reanudar' | 'rapida' | 'opciones';
@@ -15,7 +16,7 @@ function CampoNombre({
 }) {
   return (
     <label>
-      Tu apodo
+      Tu nombre
       <input
         value={nombre}
         onChange={(e) => onChange(e.target.value)}
@@ -40,19 +41,27 @@ export function Inicio({
 }) {
   const salaLink = new URLSearchParams(window.location.search).get('sala');
   const [vista, setVista] = useState<Vista>(salaLink ? 'unirse' : 'titulo');
-  const [nombre, setNombre] = useState(localStorage.getItem('uno.nombre') ?? '');
+  const [nombre, setNombre] = useState(localStorage.getItem('kroma.nombre') ?? '');
   const [codigo, setCodigo] = useState(
-    () => salaLink ?? localStorage.getItem('uno.salaHint') ?? '',
+    () => salaLink ?? localStorage.getItem('kroma.salaHint') ?? '',
   );
   const [pin, setPin] = useState('');
   const [nivel, setNivel] = useState<NivelBot>('medio');
+  const [bots, setBots] = useState(1);
   const [localError, setLocalError] = useState('');
   const [cargando, setCargando] = useState(false);
   const [reglas, setReglas] = useState(false);
   const [sonidoOn, setSonidoOn] = useState(() => sonidoActivo());
+  const [salas, setSalas] = useState<SalaLan[]>([]);
+  const historial = leerHistorial();
+
+  useEffect(() => {
+    if (vista !== 'unirse' && vista !== 'titulo') return;
+    void salasLan().then(setSalas);
+  }, [vista]);
 
   function guardarNombre() {
-    localStorage.setItem('uno.nombre', nombre.trim());
+    localStorage.setItem('kroma.nombre', nombre.trim());
   }
 
   function entrarCon(r: {
@@ -104,7 +113,7 @@ export function Inicio({
   async function rapida() {
     setLocalError('');
     setCargando(true);
-    const r = await api.partidaRapida(nombre.trim(), nivel);
+    const r = await api.partidaRapida(nombre.trim(), nivel, bots);
     setCargando(false);
     entrarCon(r);
   }
@@ -121,9 +130,9 @@ export function Inicio({
       </div>
 
       <div className="marca">
-        <p className="marca-sello">LAN</p>
-        <h1>UNO</h1>
-        <p>El clásico, en la misma Wi‑Fi</p>
+        <p className="marca-sello">EN LÍNEA</p>
+        <h1>KROMA</h1>
+        <p>Cuatro colores. Juega con tus amigos.</p>
       </div>
 
       {vista === 'titulo' && (
@@ -140,16 +149,27 @@ export function Inicio({
         </nav>
       )}
 
+      {vista === 'titulo' && historial.length > 0 && (
+        <aside className="historial">
+          <h3>Últimas partidas</h3>
+          {historial.slice(0, 3).map((h) => (
+            <p key={h.cuando}>
+              {h.campeon} · {h.puntos} pts
+            </p>
+          ))}
+        </aside>
+      )}
+
       {vista === 'jugar' && (
         <nav className="menu-principal">
-          <p className="menu-titulo">Elegí cómo entrar</p>
+          <p className="menu-titulo">Elige cómo entrar</p>
           <button type="button" className="btn-menu primario" onClick={() => setVista('rapida')}>
             Partida rápida
-            <small>vos contra un bot</small>
+            <small>tú contra 1 a 3 bots</small>
           </button>
           <button type="button" className="btn-menu" onClick={() => setVista('crear')}>
             Crear sala
-            <small>invitá gente de la red</small>
+            <small>invita a tus amigos</small>
           </button>
           <button type="button" className="btn-menu" onClick={() => setVista('unirse')}>
             Unirse a una sala
@@ -204,6 +224,21 @@ export function Inicio({
               placeholder="AB3K"
             />
           </label>
+          {salas.length > 0 && (
+            <div className="salas-lan">
+              <p className="hint">Salas abiertas</p>
+              {salas.map((s) => (
+                <button
+                  key={s.codigo}
+                  type="button"
+                  className="chip sala-chip"
+                  onClick={() => setCodigo(s.codigo)}
+                >
+                  {s.codigo} · {s.nombres.join(', ')} ({s.jugadores})
+                </button>
+              ))}
+            </div>
+          )}
           <button type="submit" className="btn primario" disabled={cargando || !nombreOk || codigo.trim().length < 4}>
             Entrar
           </button>
@@ -223,7 +258,7 @@ export function Inicio({
           }}
         >
           <h2>Reanudar</h2>
-          <p className="hint">Si te cambiaste de celular, usá el código de sala y tu PIN.</p>
+          <p className="hint">Si te cambiaste de celular, usa el código de la sala y tu PIN.</p>
           <CampoNombre nombre={nombre} onChange={setNombre} />
           <label>
             Código
@@ -264,7 +299,20 @@ export function Inicio({
         >
           <h2>Partida rápida</h2>
           <CampoNombre nombre={nombre} onChange={setNombre} />
-          <p className="hint">Nivel del bot</p>
+          <p className="hint">¿Cuántos bots?</p>
+          <div className="fila-bots wrap">
+            {[1, 2, 3].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`chip ${bots === n ? 'activo' : ''}`}
+                onClick={() => setBots(n)}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="hint">Nivel</p>
           <div className="fila-bots wrap">
             {(['facil', 'medio', 'dificil'] as const).map((n) => (
               <button

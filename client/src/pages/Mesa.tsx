@@ -1,11 +1,36 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { CartaVista, ChipColor } from '../components/CartaVista';
 import { ChatPanel } from '../components/ChatPanel';
 import { ModalReglas } from '../components/ModalReglas';
+import { TutorialMesa, tutorialPendiente } from '../components/TutorialMesa';
+import { guardarHistorial } from '../juego/historial';
 import { cartaIdentica, cartaLegal } from '../juego/legal';
+import { abanico, asientosRivales, ordenarMano } from '../juego/ordenar';
 import { sonido } from '../juego/sonidos';
 import { api } from '../socket';
 import { COLORES, PUNTOS_META, type Carta, type ColorCarta, type EstadoPublico } from '../types';
+
+function Reloj({ segs, total = 60, compacto }: { segs: number; total?: number; compacto?: boolean }) {
+  const r = 14;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(1, segs / total));
+  return (
+    <svg className={`reloj ${segs <= 10 ? 'urgente' : ''} ${compacto ? 'compacto' : ''}`} viewBox="0 0 40 40" aria-hidden>
+      <circle cx="20" cy="20" r={r} className="reloj-fondo" />
+      <circle
+        cx="20"
+        cy="20"
+        r={r}
+        className="reloj-arco"
+        strokeDasharray={c}
+        strokeDashoffset={c * (1 - pct)}
+      />
+      <text x="20" y="24">
+        {segs}
+      </text>
+    </svg>
+  );
+}
 
 export function Mesa({
   estado,
@@ -23,9 +48,12 @@ export function Mesa({
   const [colorPendiente, setColorPendiente] = useState<Carta | null>(null);
   const [reglas, setReglas] = useState(false);
   const [chatOn, setChatOn] = useState(false);
+  const [tutorial, setTutorial] = useState(tutorialPendiente);
   const [ahora, setAhora] = useState(Date.now());
+  const [vuelo, setVuelo] = useState<{ carta: Carta; dx: number; dy: number } | null>(null);
   const logLen = useRef(estado.log.length);
   const cimaId = useRef(estado.cima?.id);
+  const histHecho = useRef(false);
 
   const miTurno = estado.turnoJugadorId === estado.tuId && estado.fase === 'jugando';
   const deboResolverMas4 = estado.desafiarMas4?.jugadorId === estado.tuId;
@@ -42,30 +70,65 @@ export function Mesa({
   useEffect(() => {
     if (estado.log.length > logLen.current) {
       const ultimo = estado.log[estado.log.length - 1]?.texto ?? '';
-      if (ultimo.includes('¡Uno')) sonido('uno');
+      if (ultimo.includes('¡Kroma')) sonido('kroma');
       else if (ultimo.includes('gana') || ultimo.includes('cierra')) sonido('win');
       else if (ultimo.includes('toma')) sonido('robar');
-      else if (ultimo.includes('juega') || ultimo.includes('jump-in')) sonido('carta');
+      else if (ultimo.includes('Ronda empezada') || ultimo.includes('reparte')) sonido('barajar');
+      else if (ultimo.includes('juega') || ultimo.includes('entra con')) sonido('carta');
     }
     logLen.current = estado.log.length;
-    if (estado.cima?.id !== cimaId.current) cimaId.current = estado.cima?.id;
-  }, [estado.log, estado.cima?.id]);
+  }, [estado.log]);
+
+  useEffect(() => {
+    if (estado.cima?.id && estado.cima.id !== cimaId.current) {
+      const turno = estado.jugadores.find((j) => j.id === estado.turnoJugadorId);
+      const idx = estado.jugadores.filter((j) => j.id !== estado.tuId).findIndex((j) => j.id === turno?.id);
+      const n = estado.jugadores.length - 1;
+      let dx = 0;
+      let dy = 80;
+      if (idx >= 0 && n > 0) {
+        const t = (idx + 1) / (n + 1);
+        const a = Math.PI + t * Math.PI;
+        dx = 180 * Math.cos(a);
+        dy = 140 * Math.sin(a);
+      }
+      setVuelo({ carta: estado.cima, dx, dy });
+      const t = window.setTimeout(() => setVuelo(null), 320);
+      cimaId.current = estado.cima.id;
+      return () => window.clearTimeout(t);
+    }
+    cimaId.current = estado.cima?.id;
+  }, [estado.cima, estado.turnoJugadorId, estado.jugadores, estado.tuId]);
+
+  useEffect(() => {
+    if (!estado.campeonId || histHecho.current) return;
+    histHecho.current = true;
+    const yo = estado.jugadores.find((j) => j.id === estado.tuId);
+    guardarHistorial({
+      cuando: Date.now(),
+      campeon: estado.campeonNombre ?? 'Alguien',
+      puntos: estado.jugadores.find((j) => j.id === estado.campeonId)?.puntos ?? 0,
+      rivales: estado.jugadores.filter((j) => j.id !== yo?.id).map((j) => j.nombre),
+    });
+  }, [estado.campeonId, estado.campeonNombre, estado.jugadores, estado.tuId]);
 
   const segsTurno = Math.max(0, Math.ceil((estado.turnoHasta - ahora) / 1000));
   const segsUno = estado.unoHasta ? Math.max(0, Math.ceil((estado.unoHasta - ahora) / 1000)) : 0;
   const pctTurno = estado.turnoHasta ? Math.max(0, Math.min(100, ((estado.turnoHasta - ahora) / 60000) * 100)) : 0;
+  const segsRonda = estado.rondaAutoEn ? Math.max(0, Math.ceil((estado.rondaAutoEn - ahora) / 1000)) : 0;
 
   useEffect(() => {
     if (miTurno && segsTurno > 0 && segsTurno <= 10) sonido('tick');
   }, [segsTurno, miTurno]);
 
+  const mano = useMemo(() => ordenarMano(estado.tuMano), [estado.tuMano]);
+
   const jugables = useMemo(() => {
     const ids = new Set<string>();
     if (estado.fase !== 'jugando' || deboResolverMas4 || deboIntercambiar || !estado.cima) return ids;
-    const mano = estado.tuMano;
-    for (const c of mano) {
+    for (const c of estado.tuMano) {
       if (miTurno) {
-        if (acaboDeRobar && c.id !== mano[mano.length - 1]?.id) continue;
+        if (acaboDeRobar && c.id !== estado.tuMano[estado.tuMano.length - 1]?.id) continue;
         if (cartaLegal(c, estado)) ids.add(c.id);
       } else if (estado.reglas.jumpIn && cartaIdentica(c, estado.cima)) {
         ids.add(c.id);
@@ -98,10 +161,13 @@ export function Mesa({
     if (!r.ok) onError(r.error ?? 'No se pudo jugar.');
   }
 
+  const rivales = estado.jugadores.filter((j) => j.id !== estado.tuId);
+  const puestos = asientosRivales(rivales.length);
   const turnoNombre = estado.jugadores[estado.turnoIndex]?.nombre ?? '';
+  const debajo = (estado.descarteVisible ?? []).slice(0, -1);
 
   return (
-    <div className={`mesa color-${estado.colorActual ?? 'rojo'}`}>
+    <div className={`mesa mesa-oval color-${estado.colorActual ?? 'rojo'}`}>
       <div className="timer-bar" style={{ width: `${pctTurno}%` }} />
       <header className="barra mesa-barra">
         <button
@@ -117,12 +183,12 @@ export function Mesa({
           <strong>Sala {estado.codigo}</strong>
           <span className="muted">
             {' '}
-            · {estado.sentido === 1 ? '→' : '←'} · mazo {estado.cartasMazo}
+            · {estado.sentido === 1 ? '↻' : '↺'} · mazo {estado.cartasMazo}
             {estado.acumuladoMas > 0 ? ` · pila +${estado.acumuladoMas}` : ''}
           </span>
         </div>
         <span className={`turno-pill ${miTurno ? 'mio' : ''}`}>
-          {estado.fase === 'finalizada' ? 'Fin de ronda' : `${turnoNombre} · ${segsTurno}s`}
+          {estado.fase === 'finalizada' ? 'Fin de ronda' : miTurno ? 'Tu turno' : turnoNombre}
         </span>
         <button type="button" className="btn ghost" onClick={() => setReglas(true)}>
           Reglas
@@ -130,7 +196,7 @@ export function Mesa({
         <button type="button" className={`btn ghost ${daltonico ? 'activo' : ''}`} onClick={onDaltonico}>
           Daltonismo
         </button>
-        <button type="button" className="btn ghost" onClick={() => setChatOn((v) => !v)}>
+        <button type="button" className={`btn ghost ${chatOn ? 'activo' : ''}`} onClick={() => setChatOn((v) => !v)}>
           Chat
         </button>
       </header>
@@ -145,65 +211,86 @@ export function Mesa({
         <em>a {PUNTOS_META}</em>
       </section>
 
-      <section className="rivales">
-        {estado.jugadores
-          .filter((j) => j.id !== estado.tuId)
-          .map((j) => (
+      <div className="cancha">
+        <div className="feltro" />
+        {estado.colorActual && <div className={`anillo ${estado.colorActual}`} />}
+
+        {rivales.map((j, i) => {
+          const pos = puestos[i];
+          const activo = j.id === estado.turnoJugadorId;
+          const pensando = j.id === estado.pensandoId;
+          return (
             <article
               key={j.id}
-              className={`rival ${j.id === estado.turnoJugadorId ? 'activo' : ''} ${j.conectado ? '' : 'off'}`}
+              className={`asiento ${activo ? 'activo' : ''} ${j.conectado ? '' : 'off'} ${pensando ? 'pensando' : ''}`}
+              style={{ left: pos.left, top: pos.top }}
             >
+              {activo && estado.fase === 'jugando' && <Reloj segs={segsTurno} compacto />}
               <header>
                 <strong>{j.nombre}</strong>
                 {j.esBot && <em>{j.nivelBot}</em>}
-                {j.dijoUno && <span className="uno-tag">UNO</span>}
+                {j.dijoUno && <span className="kroma-tag">KROMA</span>}
                 {!j.conectado && !j.esBot && <span className="off-tag">off</span>}
               </header>
+              {pensando && <p className="pensa">pensando…</p>}
               <div className="mini-cartas">
-                {Array.from({ length: Math.min(j.cantidadCartas, 12) }).map((_, i) => (
-                  <span key={i} className="mini-dorso" />
+                {Array.from({ length: Math.min(j.cantidadCartas, 10) }).map((_, k) => (
+                  <span key={k} className="mini-dorso" />
                 ))}
                 <span className="n-cartas">{j.cantidadCartas}</span>
               </div>
               {j.cantidadCartas === 1 && !j.dijoUno && (
                 <button type="button" className="btn mini peligro" onClick={() => void api.acusarUno(j.id)}>
-                  ¡Le falta Uno!
+                  ¡Le falta Kroma!
                 </button>
               )}
             </article>
-          ))}
-      </section>
+          );
+        })}
 
-      <section className="centro">
-        <div className="pila-mazo">
-          <CartaVista
-            dorso
-            grande
-            etiquetaDorso="MAZO"
-            onClick={miTurno && !acaboDeRobar && !deboResolverMas4 && !deboIntercambiar ? () => void api.robar() : undefined}
-          />
-          <span>Tomar</span>
+        <div className="centro-mesa">
+          <div className="pila-mazo">
+            <CartaVista
+              dorso
+              grande
+              etiquetaDorso="KROMA"
+              onClick={
+                miTurno && !acaboDeRobar && !deboResolverMas4 && !deboIntercambiar
+                  ? () => void api.robar()
+                  : undefined
+              }
+            />
+            <span>Tomar</span>
+          </div>
+          <div className="pila-descarte">
+            {debajo.map((c) => (
+              <CartaVista key={c.id} carta={c} daltonico={daltonico} apilada />
+            ))}
+            <div
+              className={`descarte-wrap ${vuelo ? 'cae' : ''}`}
+              style={
+                vuelo
+                  ? ({ '--dx': `${vuelo.dx}px`, '--dy': `${vuelo.dy}px` } as CSSProperties)
+                  : undefined
+              }
+            >
+              <CartaVista carta={estado.cima ?? undefined} grande daltonico={daltonico} />
+            </div>
+          </div>
         </div>
-        <div className={`descarte-wrap ${estado.cima ? 'cae' : ''}`}>
-          <CartaVista carta={estado.cima ?? undefined} grande daltonico={daltonico} />
-          {estado.colorActual && <div className={`anillo ${estado.colorActual}`} />}
-        </div>
-      </section>
+      </div>
 
       {deboUno && (
-        <div className="banner uno-banner">
-          <p>¡Decí UNO! {segsUno > 0 ? `${segsUno}s` : '¡Ya te pueden pillar!'}</p>
-          <button type="button" className="btn uno" onClick={() => void api.decirUno()}>
-            ¡UNO!
-          </button>
-        </div>
+        <button type="button" className="kroma-fab" onClick={() => void api.decirUno()}>
+          ¡KROMA!{segsUno > 0 ? ` ${segsUno}` : ''}
+        </button>
       )}
 
       {deboResolverMas4 && (
         <div className="banner">
           <p>
-            Te tiraron un +4{estado.acumuladoMas ? ` (pila ${estado.acumuladoMas})` : ''}. Si desafiás y era trampa, toma
-            el otro; si era legal, vos tomás {Math.max(estado.acumuladoMas, 4) + 2}.
+            Te tiraron un +4{estado.acumuladoMas ? ` (pila ${estado.acumuladoMas})` : ''}. Si desafías y era trampa, toma
+            el otro; si era legal, tú tomas {Math.max(estado.acumuladoMas, 4) + 2}.
           </p>
           <button type="button" className="btn peligro" onClick={() => void api.resolverMas4(true)}>
             Desafiar
@@ -216,7 +303,7 @@ export function Mesa({
 
       {acaboDeRobar && miTurno && (
         <div className="banner">
-          <p>Tomaste carta. Jugala o pasá.</p>
+          <p>Tomaste carta. Juégala o pasa.</p>
           <button type="button" className="btn" onClick={() => void api.pasar()}>
             Pasar
           </button>
@@ -225,7 +312,7 @@ export function Mesa({
 
       {deboIntercambiar && (
         <div className="banner">
-          <p>Jugaste un 7. ¿Con quién intercambiás la mano?</p>
+          <p>Jugaste un 7. ¿Con quién intercambias la mano?</p>
           {estado.jugadores
             .filter((j) => j.id !== estado.tuId)
             .map((j) => (
@@ -239,12 +326,14 @@ export function Mesa({
       {estado.fase === 'finalizada' && (
         <div className="banner ganador">
           {estado.campeonId ? (
-            <p>Campeón: {estado.campeonNombre} · {estado.jugadores.find((j) => j.id === estado.campeonId)?.puntos} pts</p>
+            <p>
+              Campeón: {estado.campeonNombre} · {estado.jugadores.find((j) => j.id === estado.campeonId)?.puntos} pts
+            </p>
           ) : (
             <p>
               Ronda para {estado.ganadorNombre}
-              {estado.puntosRonda &&
-                ` · +${estado.puntosRonda.find((p) => p.id === estado.ganadorId)?.puntos ?? 0} pts`}
+              {estado.puntosRonda && ` · +${estado.puntosRonda.find((p) => p.id === estado.ganadorId)?.puntos ?? 0} pts`}
+              {segsRonda > 0 ? ` · siguiente en ${segsRonda}s` : ''}
             </p>
           )}
           {soyHost && !estado.campeonId && (
@@ -260,16 +349,30 @@ export function Mesa({
         </div>
       )}
 
-      <section className="mano">
-        {estado.tuMano.map((c) => (
-          <CartaVista
-            key={c.id}
-            carta={c}
-            jugable={jugables.has(c.id)}
-            daltonico={daltonico}
-            onClick={jugables.has(c.id) ? () => void jugar(c) : undefined}
-          />
-        ))}
+      <section className="mano-abanico" aria-label="Tu mano">
+        {mano.map((c, i) => {
+          const { rot, y } = abanico(i, mano.length);
+          return (
+            <div
+              key={c.id}
+              className="carta-slot"
+              style={
+                {
+                  '--r': `${rot}deg`,
+                  '--y': `${y}px`,
+                  zIndex: jugables.has(c.id) ? 20 : i + 1,
+                } as CSSProperties
+              }
+            >
+              <CartaVista
+                carta={c}
+                jugable={jugables.has(c.id)}
+                daltonico={daltonico}
+                onClick={jugables.has(c.id) ? () => void jugar(c) : undefined}
+              />
+            </div>
+          );
+        })}
       </section>
 
       <footer className="acciones">
@@ -278,20 +381,21 @@ export function Mesa({
             {estado.acumuladoMas > 0 ? `Tomar pila (+${estado.acumuladoMas})` : 'Tomar carta'}
           </button>
         )}
+        {miTurno && estado.fase === 'jugando' && <Reloj segs={segsTurno} />}
       </footer>
 
       <aside className="log">
         {estado.log
           .slice()
           .reverse()
-          .slice(0, 6)
+          .slice(0, 4)
           .map((l) => (
             <p key={l.id}>{l.texto}</p>
           ))}
       </aside>
 
       {chatOn && (
-        <div className="chat-flotante">
+        <div className="chat-cajon">
           <ChatPanel mensajes={estado.chat} tuId={estado.tuId} onError={onError} />
         </div>
       )}
@@ -299,7 +403,7 @@ export function Mesa({
       {colorPendiente && colorPendiente.tipo !== 'numero' && (
         <div className="modal" role="dialog">
           <div className="tarjeta">
-            <p>Elegí el color</p>
+            <p>Elige el color</p>
             <div className="fila-colores">
               {COLORES.map((c) => (
                 <ChipColor key={c} color={c} onClick={() => void confirmarColor(c)} />
@@ -315,7 +419,7 @@ export function Mesa({
       {colorPendiente && colorPendiente.tipo === 'numero' && (
         <div className="modal" role="dialog">
           <div className="tarjeta">
-            <p>¿Con quién intercambiás?</p>
+            <p>¿Con quién intercambias?</p>
             {estado.jugadores
               .filter((j) => j.id !== estado.tuId)
               .map((j) => (
@@ -341,6 +445,7 @@ export function Mesa({
       )}
 
       {reglas && <ModalReglas reglas={estado.reglas} onCerrar={() => setReglas(false)} />}
+      {tutorial && <TutorialMesa onCerrar={() => setTutorial(false)} />}
     </div>
   );
 }

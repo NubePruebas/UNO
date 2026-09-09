@@ -14,7 +14,6 @@ export function ipLan(): string | null {
 
 export function estadoPublico(partida: EstadoPartida, jugadorId: string): EstadoPublico {
   const yo = partida.jugadores.find((j) => j.id === jugadorId);
-  const soyHost = partida.hostId === jugadorId;
   const jugadores: JugadorPublico[] = partida.jugadores.map((j) => ({
     id: j.id,
     nombre: j.nombre,
@@ -24,7 +23,7 @@ export function estadoPublico(partida: EstadoPartida, jugadorId: string): Estado
     conectado: j.esBot ? true : j.conectado,
     dijoUno: j.dijoUno,
     puntos: j.puntos,
-    pin: soyHost || j.id === jugadorId ? j.pin : undefined,
+    pin: j.id === jugadorId ? j.pin : undefined,
   }));
   const turno = partida.jugadores[partida.turnoIndex];
   const ganador = partida.jugadores.find((j) => j.id === partida.ganadorId);
@@ -63,6 +62,9 @@ export function estadoPublico(partida: EstadoPartida, jugadorId: string): Estado
     log: partida.log.slice(-25),
     maxJugadores: partida.maxJugadores,
     cartasMazo: partida.mazo.length,
+    descarteVisible: partida.descarte.slice(-3),
+    pensandoId: partida.pensandoId,
+    rondaAutoEn: partida.rondaAutoEn,
   };
 }
 

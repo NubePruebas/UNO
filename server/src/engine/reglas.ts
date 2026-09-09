@@ -202,23 +202,25 @@ export function avanzarTurno(estado: EstadoPartida, saltos = 1): void {
 }
 
 function avisarUno(estado: EstadoPartida, jugador: Jugador): void {
-  if (jugador.esBot) {
-    jugador.dijoUno = jugador.nivelBot !== 'facil' || Math.random() >= 0.45;
-    if (jugador.dijoUno) {
-      log(estado, `${jugador.nombre}: ¡Uno!`);
-      estado.unoHasta = undefined;
-      estado.unoJugadorId = undefined;
-    } else {
-      jugador.dijoUno = false;
-      estado.unoJugadorId = jugador.id;
-      estado.unoHasta = Date.now() + UNO_MS;
+    if (jugador.esBot) {
+      const nivel = jugador.nivelBot ?? 'facil';
+      const p = nivel === 'dificil' ? 1 : nivel === 'medio' ? 0.82 : 0.28;
+      jugador.dijoUno = Math.random() < p;
+      if (jugador.dijoUno) {
+        log(estado, `${jugador.nombre}: ¡Kroma!`);
+        estado.unoHasta = undefined;
+        estado.unoJugadorId = undefined;
+      } else {
+        jugador.dijoUno = false;
+        estado.unoJugadorId = jugador.id;
+        estado.unoHasta = Date.now() + UNO_MS;
+      }
+      return;
     }
-    return;
-  }
   jugador.dijoUno = false;
   estado.unoJugadorId = jugador.id;
   estado.unoHasta = Date.now() + UNO_MS;
-  log(estado, `${jugador.nombre} se quedó con una carta. ¡Que diga Uno!`);
+  log(estado, `${jugador.nombre} se quedó con una carta. ¡Que grite Kroma!`);
 }
 
 export function aplicarEfecto(estado: EstadoPartida, carta: Carta, jugadorId: string): void {
@@ -389,8 +391,8 @@ export function jugarCarta(
     if (!estado.reglas.jumpIn) return { ok: false, error: 'No es tu turno.' };
     if (estado.desafiarMas4) return { ok: false, error: 'No se puede entrar en un +4.' };
     if ((estado.acumuladoMas || 0) > 0) return { ok: false, error: 'No se puede entrar sobre una pila.' };
-    if (!cima || !cartaIdentica(carta, cima)) return { ok: false, error: 'El jump-in tiene que ser la misma carta.' };
-    log(estado, `⚡ ${jugador.nombre} entra con jump-in.`);
+    if (!cima || !cartaIdentica(carta, cima)) return { ok: false, error: 'Para entrar así tiene que ser la misma carta.' };
+    log(estado, `⚡ ${jugador.nombre} entra con la misma carta.`);
     estado.turnoIndex = estado.jugadores.findIndex((j) => j.id === jugadorId);
   } else {
     if (estado.pendienteColorDe) return { ok: false, error: 'Falta elegir color.' };
@@ -531,11 +533,11 @@ export function pasarTurno(
 export function decirUno(estado: EstadoPartida, jugadorId: string): { ok: boolean; error?: string } {
   const jugador = estado.jugadores.find((j) => j.id === jugadorId);
   if (!jugador) return { ok: false, error: 'Jugador no encontrado.' };
-  if (jugador.cartas.length !== 1) return { ok: false, error: 'Solo se dice Uno con una carta.' };
+  if (jugador.cartas.length !== 1) return { ok: false, error: 'Solo se grita Kroma con una carta.' };
   jugador.dijoUno = true;
   estado.unoHasta = undefined;
   estado.unoJugadorId = undefined;
-  log(estado, `${jugador.nombre}: ¡Uno!`);
+  log(estado, `${jugador.nombre}: ¡Kroma!`);
   estado.actualizadoEn = Date.now();
   return { ok: true };
 }
@@ -550,15 +552,15 @@ export function acusarUno(
   const acusador = estado.jugadores.find((j) => j.id === acusadorId);
   if (!objetivo || !acusador) return { ok: false, error: 'Jugador no encontrado.' };
   if (objetivo.cartas.length !== 1) return { ok: false, error: 'Ese jugador no tiene una sola carta.' };
-  if (objetivo.dijoUno) return { ok: false, error: `${objetivo.nombre} ya dijo Uno.` };
+  if (objetivo.dijoUno) return { ok: false, error: `${objetivo.nombre} ya gritó Kroma.` };
   if (estado.unoJugadorId === objetivo.id && estado.unoHasta && Date.now() < estado.unoHasta) {
-    return { ok: false, error: 'Todavía está a tiempo de decir Uno.' };
+    return { ok: false, error: 'Todavía está a tiempo de gritar Kroma.' };
   }
   robarN(estado, objetivo, 2);
   objetivo.dijoUno = false;
   estado.unoHasta = undefined;
   estado.unoJugadorId = undefined;
-  log(estado, `${acusador.nombre} pilló a ${objetivo.nombre} sin decir Uno. Toma 2.`);
+  log(estado, `${acusador.nombre} cachó a ${objetivo.nombre} sin gritar Kroma. Toma 2.`);
   estado.actualizadoEn = Date.now();
   return { ok: true };
 }

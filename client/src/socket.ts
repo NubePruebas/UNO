@@ -1,7 +1,17 @@
 import { io, type Socket } from 'socket.io-client';
 import type { ColorCarta, NivelBot, ReglasCasa } from './types';
 
-export const URL_API = `${window.location.protocol}//${window.location.hostname}:3010`;
+function urlServidor(): string {
+  const env = import.meta.env.VITE_API_URL as string | undefined;
+  if (env) return env.replace(/\/$/, '');
+  const puerto = window.location.port;
+  if (puerto === '5174' || puerto === '5175') {
+    return `${window.location.protocol}//${window.location.hostname}:3010`;
+  }
+  return window.location.origin;
+}
+
+export const URL_API = urlServidor();
 
 let socket: Socket | null = null;
 
@@ -14,7 +24,13 @@ export function getSocket(): Socket {
 
 function emitir<T>(evento: string, payload?: unknown): Promise<T> {
   return new Promise((resolve) => {
-    getSocket().emit(evento, payload ?? {}, (res: T) => resolve(res));
+    const t = window.setTimeout(() => {
+      resolve({ ok: false, error: 'Sin respuesta del servidor.' } as T);
+    }, 8000);
+    getSocket().emit(evento, payload ?? {}, (res: T) => {
+      window.clearTimeout(t);
+      resolve(res);
+    });
   });
 }
 
@@ -40,7 +56,8 @@ export const api = {
   echarJugador: (jugadorId: string) => emitir<Respuesta>('echarJugador', { jugadorId }),
   salirSala: () => emitir<Respuesta>('salirSala'),
   iniciarPartida: () => emitir<Respuesta>('iniciarPartida'),
-  partidaRapida: (nombre: string, nivel?: NivelBot) => emitir<Respuesta>('partidaRapida', { nombre, nivel }),
+  partidaRapida: (nombre: string, nivel?: NivelBot, bots?: number) =>
+    emitir<Respuesta>('partidaRapida', { nombre, nivel, bots }),
   actualizarReglas: (reglas: Partial<ReglasCasa>) => emitir<Respuesta>('actualizarReglas', reglas),
   jugarCarta: (cartaId: string, color?: ColorCarta, objetivoId?: string) =>
     emitir<Respuesta>('jugarCarta', { cartaId, color, objetivoId }),
@@ -60,6 +77,18 @@ export async function infoLan(): Promise<{ ip: string | null; puertoJuego: numbe
     const r = await fetch(`${URL_API}/api/lan`);
     return r.json();
   } catch {
-    return { ip: null, puertoJuego: 5174 };
+    return { ip: null, puertoJuego: Number(window.location.port) || 80 };
+  }
+}
+
+export type SalaLan = { codigo: string; jugadores: number; nombres: string[] };
+
+export async function salasLan(): Promise<SalaLan[]> {
+  try {
+    const r = await fetch(`${URL_API}/api/salas`);
+    const d = (await r.json()) as { salas?: SalaLan[] };
+    return d.salas ?? [];
+  } catch {
+    return [];
   }
 }
