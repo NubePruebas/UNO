@@ -4,17 +4,19 @@ Juego de cartas de colores. Partidas a 500 puntos, mesa en vivo, bots, chat y sa
 
 No está afiliado a Mattel ni a ninguna marca comercial de cartas.
 
-## Publicar (recomendado: Northflank)
+## Publicar (recomendado: Render, sin tarjeta)
 
-Gratis, no se duerme, un solo link HTTPS para front y back.
+Un solo link HTTPS para front y back. Puedes ir subiendo más juegos en la misma cuenta.
 
-La guía clic a clic está en **[PASOS-NORTHFLANK.md](PASOS-NORTHFLANK.md)**.
+La guía clic a clic está en **[PASOS-RENDER.md](PASOS-RENDER.md)**.
 
-Resumen: cuenta Sandbox en [northflank.com](https://northflank.com) → GitHub (`NubePruebas/UNO`) → proyecto `kroma` → Combined service, Dockerfile, puerto **3010** público HTTP. El URL que te den (tipo `*.code.run`) es el de tu página de juegos.
+Resumen: [render.com](https://render.com) con GitHub → Web Service del repo `UNO` → Build `npm run build`, Start `npm start`, instance **Free**. El URL (`https://kroma-xxxx.onrender.com`) es el de tu página de juegos.
+
+El Free se duerme ~15 min sin visitas; el siguiente click tarda un poco. No piden tarjeta.
 
 ## Qué poner en tu página de juegos
 
-Un botón **Jugar Kroma** que abra el URL de Northflank.  
+Un botón **Jugar Kroma** que abra el URL de Render.  
 No hace falta un link aparte de backend.
 
 ## Desarrollo local

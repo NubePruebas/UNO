@@ -1,4 +1,7 @@
-# Publicar Kroma en Northflank (gratis y no se duerme)
+# Publicar Kroma en Northflank
+
+**Para varios juegos sin tarjeta, usa [PASOS-RENDER.md](PASOS-RENDER.md).**  
+Northflank pide tarjeta y el Sandbox solo deja **2** servicios.
 
 El código ya está en GitHub: https://github.com/NubePruebas/UNO  
 Front y back salen **juntos** en un solo link. No subas el cliente a otra página.
