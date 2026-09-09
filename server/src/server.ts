@@ -42,7 +42,7 @@ if (fs.existsSync(dist)) {
     res.sendFile(path.join(dist, 'index.html'));
   });
 } else {
-  console.warn('No está client/dist. En producción corré: npm run build');
+  console.warn('No está client/dist. En producción corre: npm run build');
 }
 
 const httpServer = createServer(app);

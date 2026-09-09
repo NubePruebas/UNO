@@ -4,15 +4,20 @@ Juego de cartas de colores. Partidas a 500 puntos, mesa en vivo, bots, chat y sa
 
 No está afiliado a Mattel ni a ninguna marca comercial de cartas.
 
-## Publicar (recomendado: Render, sin tarjeta)
+## Publicar en Render (sin tarjeta)
 
-Un solo link HTTPS para front y back. Puedes ir subiendo más juegos en la misma cuenta.
+Un solo link HTTPS: cliente y servidor juntos. Puedes ir subiendo más juegos en la misma cuenta.
 
-La guía clic a clic está en **[PASOS-RENDER.md](PASOS-RENDER.md)**.
+**Guía clic a clic:** [PASOS-RENDER.md](PASOS-RENDER.md)
 
-Resumen: [render.com](https://render.com) con GitHub → Web Service del repo `UNO` → Build `npm run build`, Start `npm start`, instance **Free**. El URL (`https://kroma-xxxx.onrender.com`) es el de tu página de juegos.
+1. Entra a [https://dashboard.render.com](https://dashboard.render.com) con GitHub (no pongas tarjeta).
+2. **New + → Blueprint** → repo `NubePruebas/UNO` → **Apply**.
+3. Espera a que quede Live. El URL es tipo `https://kroma-xxxx.onrender.com`.
+4. Prueba `/health` y la portada. Ese URL va en tu página de juegos.
 
-El Free se duerme ~15 min sin visitas; el siguiente click tarda un poco. No piden tarjeta.
+Si no ves Blueprint: Web Service, Build `npm run build`, Start `npm start`, instance **Free**. El archivo `render.yaml` ya trae esos valores.
+
+El plan Free se duerme ~15 min sin visitas; el siguiente click tarda un poco.
 
 ## Qué poner en tu página de juegos
 
