@@ -54,6 +54,8 @@ export function Mesa({
   const [estrecho, setEstrecho] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches,
   );
+  const [robando, setRobando] = useState(false);
+  const robandoRef = useRef(false);
   const logLen = useRef(estado.log.length);
   const cimaId = useRef(estado.cima?.id);
   const histHecho = useRef(false);
@@ -200,6 +202,22 @@ export function Mesa({
     if (!r.ok) onError(r.error ?? 'No se pudo jugar.');
   }
 
+  async function tomar() {
+    if (robandoRef.current) return;
+    robandoRef.current = true;
+    setRobando(true);
+    try {
+      const r = await api.robar();
+      if (!r.ok) {
+        sonido('error');
+        onError(r.error ?? 'No se pudo tomar.');
+      }
+    } finally {
+      robandoRef.current = false;
+      setRobando(false);
+    }
+  }
+
   const rivales = estado.jugadores.filter((j) => j.id !== estado.tuId);
   const puestos = asientosRivales(rivales.length, estrecho);
   const turnoNombre = estado.jugadores[estado.turnoIndex]?.nombre ?? '';
@@ -276,16 +294,18 @@ export function Mesa({
               {activo && estado.fase === 'jugando' && <Reloj segs={segsTurno} compacto />}
               <header>
                 <strong>{j.nombre}</strong>
-                {j.esBot && <em>{j.nivelBot}</em>}
+                <span className="n-cartas" title="Cartas en mano">
+                  {j.cantidadCartas}
+                </span>
+                {j.esBot && !estrecho && <em>{j.nivelBot}</em>}
                 {j.dijoUno && <span className="kroma-tag">KROMA</span>}
                 {!j.conectado && !j.esBot && <span className="off-tag">off</span>}
               </header>
               {pensando && <p className="pensa">pensando…</p>}
-              <div className="mini-cartas">
-                {Array.from({ length: Math.min(j.cantidadCartas, 10) }).map((_, k) => (
+              <div className="mini-cartas" aria-hidden>
+                {Array.from({ length: Math.min(j.cantidadCartas, estrecho ? 5 : 10) }).map((_, k) => (
                   <span key={k} className="mini-dorso" />
                 ))}
-                <span className="n-cartas">{j.cantidadCartas}</span>
               </div>
               {j.cantidadCartas === 1 && !j.dijoUno && (
                 <button type="button" className="btn mini peligro" onClick={() => void api.acusarUno(j.id)}>
@@ -303,12 +323,18 @@ export function Mesa({
               grande
               etiquetaDorso="KROMA"
               onClick={
-                miTurno && !acaboDeRobar && !deboResolverMas4 && !deboIntercambiar
-                  ? () => void api.robar()
+                miTurno && !acaboDeRobar && !deboResolverMas4 && !deboIntercambiar && !robando
+                  ? () => void tomar()
                   : undefined
               }
             />
-            <span>Tomar</span>
+            <span>
+              {estado.acumuladoMas > 0
+                ? `Pila +${estado.acumuladoMas}`
+                : estado.reglas.robarHastaJugar
+                  ? 'Hasta poder'
+                  : 'Tomar'}
+            </span>
           </div>
           <div className="pila-descarte">
             {debajo.map((c) => (
@@ -432,8 +458,12 @@ export function Mesa({
 
       <footer className="acciones">
         {miTurno && !acaboDeRobar && !deboResolverMas4 && estado.fase === 'jugando' && (
-          <button type="button" className="btn" onClick={() => void api.robar()}>
-            {estado.acumuladoMas > 0 ? `Tomar pila (+${estado.acumuladoMas})` : 'Tomar carta'}
+          <button type="button" className="btn" disabled={robando} onClick={() => void tomar()}>
+            {estado.acumuladoMas > 0
+              ? `Tomar pila (+${estado.acumuladoMas})`
+              : estado.reglas.robarHastaJugar
+                ? 'Tomar hasta poder jugar'
+                : 'Tomar carta'}
           </button>
         )}
         {miTurno && estado.fase === 'jugando' && <Reloj segs={segsTurno} />}

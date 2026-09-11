@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Carta, EstadoPartida, Jugador, REGLAS_DEFAULT } from '../types';
-import { cartaIdentica, cartaLegal, jugarCarta, puntosCarta } from './reglas';
+import { cartaIdentica, cartaLegal, jugarCarta, puntosCarta, robarCarta } from './reglas';
 
 function carta(p: Partial<Carta> & Pick<Carta, 'id' | 'tipo'>): Carta {
   return { color: p.color ?? 'rojo', ...p };
@@ -115,6 +115,25 @@ test('jugar carta avanza y deja el descarte', () => {
   assert.equal(r.ok, true);
   assert.equal(e.descarte[e.descarte.length - 1].id, 'a');
   assert.equal(e.turnoIndex, 1);
+});
+
+test('después de tomar una jugable no puedes tomar otra', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 2, color: 'rojo' });
+  const mano = [carta({ id: 'x', tipo: 'numero', valor: 9, color: 'azul' })];
+  const tomada = carta({ id: 'r', tipo: 'numero', valor: 2, color: 'verde' });
+  const e = estado({
+    jugadores: [jugador('yo', mano), jugador('otro', [carta({ id: 'o', tipo: 'numero', valor: 1, color: 'azul' })])],
+    descarte: [cima],
+    colorActual: 'rojo',
+    mazo: [tomada],
+    turnoIndex: 0,
+  });
+  const a = robarCarta(e, 'yo');
+  assert.equal(a.ok, true);
+  assert.equal(e.jugadores[0].cartas.length, 2);
+  const b = robarCarta(e, 'yo');
+  assert.equal(b.ok, false);
+  assert.equal(e.jugadores[0].cartas.length, 2);
 });
 
 test('puntos de cartas', () => {

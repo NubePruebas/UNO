@@ -472,6 +472,9 @@ export function robarCarta(
   const jugador = estado.jugadores.find((j) => j.id === jugadorId);
   if (!jugador) return { ok: false, error: 'Jugador no encontrado.' };
   if (jugadorActual(estado).id !== jugadorId) return { ok: false, error: 'No es tu turno.' };
+  if (estado.acabaDeRobarId === jugadorId) {
+    return { ok: false, error: 'Ya tomaste. Juégala o pasa.' };
+  }
 
   if ((estado.acumuladoMas || 0) > 0) {
     const n = estado.acumuladoMas;
