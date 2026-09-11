@@ -294,18 +294,20 @@ export function Mesa({
               {activo && estado.fase === 'jugando' && <Reloj segs={segsTurno} compacto />}
               <header>
                 <strong>{j.nombre}</strong>
-                <span className="n-cartas" title="Cartas en mano">
-                  {j.cantidadCartas}
-                </span>
                 {j.esBot && !estrecho && <em>{j.nivelBot}</em>}
                 {j.dijoUno && <span className="kroma-tag">KROMA</span>}
                 {!j.conectado && !j.esBot && <span className="off-tag">off</span>}
               </header>
               {pensando && <p className="pensa">pensando…</p>}
-              <div className="mini-cartas" aria-hidden>
-                {Array.from({ length: Math.min(j.cantidadCartas, estrecho ? 5 : 10) }).map((_, k) => (
-                  <span key={k} className="mini-dorso" />
+              <div className="mini-cartas" aria-label={`${j.cantidadCartas} cartas`}>
+                {Array.from({ length: Math.min(Math.max(j.cantidadCartas, 0), estrecho ? 8 : 12) }).map((_, k) => (
+                  <span
+                    key={k}
+                    className="mini-dorso"
+                    style={{ zIndex: k, '--i': k } as CSSProperties}
+                  />
                 ))}
+                <span className="n-cartas">{j.cantidadCartas}</span>
               </div>
               {j.cantidadCartas === 1 && !j.dijoUno && (
                 <button type="button" className="btn mini peligro" onClick={() => void api.acusarUno(j.id)}>
