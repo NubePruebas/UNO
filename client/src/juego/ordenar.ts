@@ -22,23 +22,31 @@ export function ordenarMano(cartas: Carta[]): Carta[] {
   });
 }
 
-export function abanico(i: number, n: number): { rot: number; y: number } {
+export function abanico(i: number, n: number, compacto = false): { rot: number; y: number } {
   if (n <= 1) return { rot: 0, y: 0 };
   const t = i / (n - 1) - 0.5;
+  const rotMax = compacto ? Math.min(12, 3 + n * 0.9) : Math.min(28, 8 + n * 2);
+  const yMax = compacto ? Math.min(6, 2 + n * 0.3) : Math.min(18, 5 + n * 0.7);
   return {
-    rot: t * Math.min(28, 8 + n * 2),
-    y: Math.abs(t) * Math.min(18, 5 + n * 0.7),
+    rot: t * rotMax,
+    y: Math.abs(t) * yMax,
   };
 }
 
 /** Solape y escala para ver cada carta, sin scroll. */
-export function layoutMano(n: number, ancho: number, cartaW: number): { solape: number; escala: number } {
+export function layoutMano(
+  n: number,
+  ancho: number,
+  cartaW: number,
+  compacto = false,
+): { solape: number; escala: number } {
   if (n <= 1) return { solape: 0, escala: 1 };
   if (ancho < 80) return { solape: Math.round(cartaW * 0.25), escala: 1 };
-  const visibleMin = Math.round(cartaW * 0.5);
-  const solapeIdeal = Math.round(cartaW * 0.2);
+  const visibleMin = Math.round(cartaW * (compacto ? 0.42 : 0.5));
+  const solapeIdeal = Math.round(cartaW * (compacto ? 0.28 : 0.2));
   const maxSolape = cartaW - visibleMin;
-  const disponible = Math.max(cartaW, ancho - 24);
+  const margen = compacto ? 40 : 24;
+  const disponible = Math.max(cartaW, ancho - margen);
   const anchoIdeal = cartaW + (n - 1) * (cartaW - solapeIdeal);
   if (anchoIdeal <= disponible) {
     return { solape: solapeIdeal, escala: 1 };
@@ -51,13 +59,16 @@ export function layoutMano(n: number, ancho: number, cartaW: number): { solape: 
   return { solape: maxSolape, escala: Math.min(1, disponible / anchoMin) };
 }
 
-export function asientosRivales(n: number): { left: string; top: string }[] {
+export function asientosRivales(n: number, compacto = false): { left: string; top: string }[] {
+  const rx = compacto ? (n >= 3 ? 32 : 34) : 44;
+  const ry = compacto ? (n >= 3 ? 24 : 26) : 36;
+  const cy = compacto ? 38 : 46;
   return Array.from({ length: n }, (_, i) => {
     const t = (i + 1) / (n + 1);
     const a = Math.PI + t * Math.PI;
     return {
-      left: `${50 + 44 * Math.cos(a)}%`,
-      top: `${46 + 36 * Math.sin(a)}%`,
+      left: `${50 + rx * Math.cos(a)}%`,
+      top: `${cy + ry * Math.sin(a)}%`,
     };
   });
 }

@@ -51,6 +51,9 @@ export function Mesa({
   const [tutorial, setTutorial] = useState(tutorialPendiente);
   const [ahora, setAhora] = useState(Date.now());
   const [vuelo, setVuelo] = useState<{ carta: Carta; dx: number; dy: number } | null>(null);
+  const [estrecho, setEstrecho] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches,
+  );
   const logLen = useRef(estado.log.length);
   const cimaId = useRef(estado.cima?.id);
   const histHecho = useRef(false);
@@ -65,6 +68,16 @@ export function Mesa({
   useEffect(() => {
     const t = setInterval(() => setAhora(Date.now()), 250);
     return () => clearInterval(t);
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = mesaRef.current;
+    if (!el) return;
+    const sync = () => setEstrecho(el.clientWidth < 720);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   useEffect(() => {
@@ -123,6 +136,7 @@ export function Mesa({
 
   const mano = useMemo(() => ordenarMano(estado.tuMano), [estado.tuMano]);
   const manoRef = useRef<HTMLElement>(null);
+  const mesaRef = useRef<HTMLDivElement>(null);
   const [solape, setSolape] = useState(18);
   const [escalaMano, setEscalaMano] = useState(1);
 
@@ -138,7 +152,7 @@ export function Mesa({
       }
       const carta = el.querySelector('.carta') as HTMLElement | null;
       const w = carta?.offsetWidth || 86;
-      const { solape: s, escala } = layoutMano(n, el.clientWidth, w);
+      const { solape: s, escala } = layoutMano(n, el.clientWidth, w, el.clientWidth < 720);
       setSolape(s);
       setEscalaMano(escala);
     };
@@ -187,43 +201,52 @@ export function Mesa({
   }
 
   const rivales = estado.jugadores.filter((j) => j.id !== estado.tuId);
-  const puestos = asientosRivales(rivales.length);
+  const puestos = asientosRivales(rivales.length, estrecho);
   const turnoNombre = estado.jugadores[estado.turnoIndex]?.nombre ?? '';
   const debajo = (estado.descarteVisible ?? []).slice(0, -1);
 
   return (
-    <div className={`mesa mesa-oval color-${estado.colorActual ?? 'rojo'}`}>
+    <div
+      ref={mesaRef}
+      className={`mesa mesa-oval color-${estado.colorActual ?? 'rojo'}${estrecho ? ' estrecho' : ''}`}
+    >
       <div className="timer-bar" style={{ width: `${pctTurno}%` }} />
       <header className="barra mesa-barra">
-        <button
-          type="button"
-          className="btn mini"
-          onClick={() => {
-            void api.salirSala().then(onSalir);
-          }}
-        >
-          Salir
-        </button>
-        <div>
-          <strong>Sala {estado.codigo}</strong>
-          <span className="muted">
-            {' '}
-            · {estado.sentido === 1 ? '↻' : '↺'} · mazo {estado.cartasMazo}
-            {estado.acumuladoMas > 0 ? ` · pila +${estado.acumuladoMas}` : ''}
+        <div className="mesa-fila">
+          <button
+            type="button"
+            className="btn mini"
+            onClick={() => {
+              void api.salirSala().then(onSalir);
+            }}
+          >
+            Salir
+          </button>
+          <span className={`turno-pill ${miTurno ? 'mio' : ''}`}>
+            {estado.fase === 'finalizada' ? 'Fin' : miTurno ? 'Tu turno' : turnoNombre}
           </span>
+          <div className="mesa-iconos">
+            <button type="button" className="btn ghost mini" onClick={() => setReglas(true)}>
+              Reglas
+            </button>
+            <button
+              type="button"
+              className={`btn ghost mini ${daltonico ? 'activo' : ''}`}
+              onClick={onDaltonico}
+              title="Daltonismo"
+            >
+              <span className="lbl-full">Daltonismo</span>
+              <span className="lbl-corto">Aa</span>
+            </button>
+            <button type="button" className={`btn ghost mini ${chatOn ? 'activo' : ''}`} onClick={() => setChatOn((v) => !v)}>
+              Chat
+            </button>
+          </div>
         </div>
-        <span className={`turno-pill ${miTurno ? 'mio' : ''}`}>
-          {estado.fase === 'finalizada' ? 'Fin de ronda' : miTurno ? 'Tu turno' : turnoNombre}
-        </span>
-        <button type="button" className="btn ghost" onClick={() => setReglas(true)}>
-          Reglas
-        </button>
-        <button type="button" className={`btn ghost ${daltonico ? 'activo' : ''}`} onClick={onDaltonico}>
-          Daltonismo
-        </button>
-        <button type="button" className={`btn ghost ${chatOn ? 'activo' : ''}`} onClick={() => setChatOn((v) => !v)}>
-          Chat
-        </button>
+        <p className="mesa-meta">
+          Sala {estado.codigo} · {estado.sentido === 1 ? '↻' : '↺'} · mazo {estado.cartasMazo}
+          {estado.acumuladoMas > 0 ? ` · pila +${estado.acumuladoMas}` : ''}
+        </p>
       </header>
 
       <section className="marcador">
@@ -382,7 +405,7 @@ export function Mesa({
       >
         <div className="mano-abanico-inner">
         {mano.map((c, i) => {
-          const { rot, y } = abanico(i, mano.length);
+          const { rot, y } = abanico(i, mano.length, estrecho);
           return (
             <div
               key={c.id}
