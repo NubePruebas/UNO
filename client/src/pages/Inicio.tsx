@@ -15,7 +15,7 @@ function leerReglasCasa(): ReglasCasa {
     const o = JSON.parse(raw) as Partial<ReglasCasa>;
     return {
       apilarMas: Boolean(o.apilarMas),
-      robarHastaJugar: Boolean(o.robarHastaJugar),
+      robarHastaJugar: typeof o.robarHastaJugar === 'boolean' ? o.robarHastaJugar : true,
       jumpIn: Boolean(o.jumpIn),
       sieteCero: Boolean(o.sieteCero),
     };

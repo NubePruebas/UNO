@@ -965,6 +965,18 @@ button.carta {
   from { transform: translateY(-18px) rotate(-8deg) scale(1.08); opacity: 0.4; }
   to { transform: none; opacity: 1; }
 }
+.carta.recien {
+  box-shadow: 0 10px 22px #0008, 0 0 0 3px #fff;
+  animation: pop-recien 0.4s ease-out;
+}
+@keyframes pop-recien {
+  from {
+    transform: translateY(-26px) scale(1.12);
+  }
+  to {
+    transform: none;
+  }
+}
 .carta.jugable {
   animation: pulso 1.2s ease-in-out infinite;
 }

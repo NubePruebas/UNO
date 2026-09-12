@@ -149,7 +149,7 @@ export function puertoEscucha(): number {
 
 export const REGLAS_DEFAULT: ReglasCasa = {
   apilarMas: false,
-  robarHastaJugar: false,
+  robarHastaJugar: true,
   jumpIn: false,
   sieteCero: false,
 };

@@ -56,6 +56,8 @@ export function Mesa({
   );
   const [robando, setRobando] = useState(false);
   const robandoRef = useRef(false);
+  const [recienId, setRecienId] = useState<string | null>(null);
+  const prevManoIds = useRef<string[]>([]);
   const logLen = useRef(estado.log.length);
   const cimaId = useRef(estado.cima?.id);
   const histHecho = useRef(false);
@@ -136,7 +138,24 @@ export function Mesa({
     if (miTurno && segsTurno > 0 && segsTurno <= 10) sonido('tick');
   }, [segsTurno, miTurno]);
 
-  const mano = useMemo(() => ordenarMano(estado.tuMano), [estado.tuMano]);
+  const mano = useMemo(() => {
+    const o = ordenarMano(estado.tuMano);
+    if (!recienId) return o;
+    const i = o.findIndex((c) => c.id === recienId);
+    if (i < 0) return o;
+    return [...o.slice(0, i), ...o.slice(i + 1), o[i]];
+  }, [estado.tuMano, recienId]);
+
+  useEffect(() => {
+    const ids = estado.tuMano.map((c) => c.id);
+    const nuevos = ids.filter((id) => !prevManoIds.current.includes(id));
+    if (nuevos.length > 0 && ids.length >= prevManoIds.current.length) {
+      setRecienId(nuevos[nuevos.length - 1] ?? null);
+    } else if (recienId && !ids.includes(recienId)) {
+      setRecienId(null);
+    }
+    prevManoIds.current = ids;
+  }, [estado.tuMano, recienId]);
   const manoRef = useRef<HTMLElement>(null);
   const mesaRef = useRef<HTMLDivElement>(null);
   const [solape, setSolape] = useState(18);
@@ -169,14 +188,13 @@ export function Mesa({
     if (estado.fase !== 'jugando' || deboResolverMas4 || deboIntercambiar || !estado.cima) return ids;
     for (const c of estado.tuMano) {
       if (miTurno) {
-        if (acaboDeRobar && c.id !== estado.tuMano[estado.tuMano.length - 1]?.id) continue;
         if (cartaLegal(c, estado)) ids.add(c.id);
       } else if (estado.reglas.jumpIn && cartaIdentica(c, estado.cima)) {
         ids.add(c.id);
       }
     }
     return ids;
-  }, [estado, miTurno, deboResolverMas4, acaboDeRobar, deboIntercambiar]);
+  }, [estado, miTurno, deboResolverMas4, deboIntercambiar]);
 
   async function jugar(carta: Carta) {
     if (carta.tipo === 'comodin' || carta.tipo === 'comodin_mas4') {
@@ -334,7 +352,9 @@ export function Mesa({
               {estado.acumuladoMas > 0
                 ? `Pila +${estado.acumuladoMas}`
                 : estado.reglas.robarHastaJugar
-                  ? 'Hasta poder'
+                  ? acaboDeRobar
+                    ? 'Tomar'
+                    : 'Tomar una'
                   : 'Tomar'}
             </span>
           </div>
@@ -379,12 +399,29 @@ export function Mesa({
 
       {acaboDeRobar && miTurno && (
         <div className="banner">
-          <p>Tomaste carta. Juégala o pasa.</p>
+          <p>Puedes tirar cualquiera que coincida, o pasar.</p>
           <button type="button" className="btn" onClick={() => void api.pasar()}>
             Pasar
           </button>
         </div>
       )}
+
+      {miTurno &&
+        estado.reglas.robarHastaJugar &&
+        !acaboDeRobar &&
+        !deboResolverMas4 &&
+        !deboIntercambiar &&
+        estado.acumuladoMas === 0 &&
+        estado.fase === 'jugando' &&
+        jugables.size === 0 && (
+          <div className="banner">
+            <p>
+              {recienId
+                ? 'Esa no pega. Toma otra, una por una, hasta que sí.'
+                : 'No tienes jugada. Toma una carta.'}
+            </p>
+          </div>
+        )}
 
       {deboIntercambiar && (
         <div className="banner">
@@ -450,6 +487,7 @@ export function Mesa({
                 carta={c}
                 jugable={jugables.has(c.id)}
                 daltonico={daltonico}
+                recien={c.id === recienId}
                 onClick={jugables.has(c.id) ? () => void jugar(c) : undefined}
               />
             </div>
@@ -464,7 +502,9 @@ export function Mesa({
             {estado.acumuladoMas > 0
               ? `Tomar pila (+${estado.acumuladoMas})`
               : estado.reglas.robarHastaJugar
-                ? 'Tomar hasta poder jugar'
+                ? recienId && !acaboDeRobar
+                  ? 'Tomar otra'
+                  : 'Tomar una'
                 : 'Tomar carta'}
           </button>
         )}

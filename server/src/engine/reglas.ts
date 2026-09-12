@@ -10,18 +10,15 @@ import {
 } from '../types';
 import { barajar, crearMazo, reponerMazo } from './mazo';
 
-export function cartaLegal(carta: Carta, estado: EstadoPartida, mano: Carta[]): boolean {
+export function cartaLegal(carta: Carta, estado: EstadoPartida, _mano: Carta[]): boolean {
   if ((estado.acumuladoMas ?? 0) > 0 && estado.tipoPila) {
     return carta.tipo === estado.tipoPila;
   }
   const cima = estado.descarte[estado.descarte.length - 1];
   if (!cima) return false;
   const colorActual = estado.colorActual;
-  if (carta.tipo === 'comodin') return true;
-  if (carta.tipo === 'comodin_mas4') {
-    return !mano.some((c) => c.id !== carta.id && c.color === colorActual);
-  }
-  if (carta.color === colorActual) return true;
+  if (carta.tipo === 'comodin' || carta.tipo === 'comodin_mas4') return true;
+  if (carta.color && carta.color === colorActual) return true;
   if (carta.tipo === 'numero' && cima.tipo === 'numero' && carta.valor === cima.valor) return true;
   if (
     (carta.tipo === 'salto' || carta.tipo === 'reverso' || carta.tipo === 'mas2') &&
@@ -399,12 +396,6 @@ export function jugarCarta(
     if (estado.acabaDeRobarId && estado.acabaDeRobarId !== jugadorId) {
       return { ok: false, error: 'Espera a que juegue o pase quien robó.' };
     }
-    if (estado.acabaDeRobarId === jugadorId) {
-      const ultima = jugador.cartas[jugador.cartas.length - 1];
-      if (carta.id !== ultima.id) {
-        return { ok: false, error: 'Solo puedes jugar la carta que acabas de tomar.' };
-      }
-    }
     if (!cartaLegal(carta, estado, jugador.cartas)) {
       return { ok: false, error: 'Esa carta no se puede jugar.' };
     }
@@ -487,21 +478,17 @@ export function robarCarta(
   }
 
   if (estado.reglas.robarHastaJugar) {
-    let ultima: Carta | null = null;
-    let guardas = 0;
-    while (guardas++ < 40) {
-      ultima = robarUna(estado, jugador);
-      if (!ultima) break;
-      if (cartaLegal(ultima, estado, jugador.cartas)) break;
-    }
-    log(estado, `${jugador.nombre} toma hasta poder jugar.`);
-    if (ultima && cartaLegal(ultima, estado, jugador.cartas)) {
+    const carta = robarUna(estado, jugador);
+    if (!carta) return { ok: false, error: 'No hay cartas para robar.' };
+    const puede = cartaLegal(carta, estado, jugador.cartas);
+    if (puede) {
       estado.acabaDeRobarId = jugadorId;
+      log(estado, `${jugador.nombre} toma una y sí se puede tirar.`);
     } else {
-      avanzarTurno(estado, 1);
+      log(estado, `${jugador.nombre} toma una. No pega: sigue tomando.`);
     }
     estado.actualizadoEn = Date.now();
-    return { ok: true, carta: ultima ?? undefined };
+    return { ok: true, carta };
   }
 
   const carta = robarUna(estado, jugador);
@@ -588,9 +575,18 @@ export function forzarTimeoutTurno(estado: EstadoPartida): void {
     return;
   }
   log(estado, `Se acabó el minuto de ${actual.nombre}. Toma carta.`);
-  robarCarta(estado, actual.id);
-  if (estado.fase === 'jugando' && estado.acabaDeRobarId === actual.id) {
-    pasarTurno(estado, actual.id);
+  let guardas = 0;
+  while (guardas++ < 40) {
+    const id = jugadorActual(estado).id;
+    if (id !== actual.id) break;
+    robarCarta(estado, actual.id);
+    if (estado.fase !== 'jugando') break;
+    if (estado.acabaDeRobarId === actual.id) {
+      pasarTurno(estado, actual.id);
+      break;
+    }
+    if (jugadorActual(estado).id !== actual.id) break;
+    if (!estado.reglas.robarHastaJugar) break;
   }
 }
 

@@ -5,7 +5,7 @@ const KEY = 'kroma.tutorial';
 const PASOS = [
   {
     titulo: 'Tu mano',
-    texto: 'Abajo están tus cartas, en abanico y ordenadas por color. Las que puedes jugar se levantan solas.',
+    texto: 'Se iluminan todas las que sí puedes tirar: mismo color, mismo número, mismo especial, comodín o +4. Tú eliges cuál.',
   },
   {
     titulo: 'La mesa',

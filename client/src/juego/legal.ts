@@ -7,12 +7,8 @@ export function cartaLegal(carta: Carta, estado: EstadoPublico): boolean {
   const cima = estado.cima;
   if (!cima || !estado.colorActual) return false;
   const colorActual = estado.colorActual;
-  const mano = estado.tuMano;
-  if (carta.tipo === 'comodin') return true;
-  if (carta.tipo === 'comodin_mas4') {
-    return !mano.some((c) => c.id !== carta.id && c.color === colorActual);
-  }
-  if (carta.color === colorActual) return true;
+  if (carta.tipo === 'comodin' || carta.tipo === 'comodin_mas4') return true;
+  if (carta.color && carta.color === colorActual) return true;
   if (carta.tipo === 'numero' && cima.tipo === 'numero' && carta.valor === cima.valor) return true;
   if (
     (carta.tipo === 'salto' || carta.tipo === 'reverso' || carta.tipo === 'mas2') &&

@@ -18,10 +18,11 @@ export function ModalReglas({
         </header>
         <div className="reglas-cuerpo">
           <ul className="reglas-oficiales">
-            <li>108 cartas, 7 a cada uno. Coincide color o número, o un comodín.</li>
+            <li>108 cartas, 7 a cada uno.</li>
             <li>Salto, reverso y +2 hacen lo que dice la carta. En 2 jugadores el reverso es un salto.</li>
             <li>
-              +4 solo si no tienes el color. Desafío: trampa = el otro toma 4; si era legal, tú tomas 6.
+              Coincide color, número o el mismo especial (salto, reverso, +2). El comodín y el +4 siempre se pueden
+              tirar: tú eliges. Si tiras +4 y sí tenías el color, te pueden desafiar.
             </li>
             <li>
               Una carta: grita <strong>Kroma</strong> (8 s). Turno de 1 min. Gana quien llega a {PUNTOS_META} pts.

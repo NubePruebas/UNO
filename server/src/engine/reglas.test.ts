@@ -57,14 +57,24 @@ test('carta legal: mismo número otro color', () => {
   assert.equal(cartaLegal(mano[0], e, mano), true);
 });
 
-test('+4 ilegal si tienes el color', () => {
+test('+4 se puede tirar aunque tengas el color (farol)', () => {
   const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
   const mano = [
     carta({ id: 'a', tipo: 'numero', valor: 9, color: 'rojo' }),
     carta({ id: 'w', tipo: 'comodin_mas4', color: null }),
   ];
   const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima], colorActual: 'rojo' });
-  assert.equal(cartaLegal(mano[1], e, mano), false);
+  assert.equal(cartaLegal(mano[1], e, mano), true);
+});
+
+test('comodín se puede tirar aunque tengas el color', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 3, color: 'rojo' });
+  const mano = [
+    carta({ id: 'a', tipo: 'numero', valor: 9, color: 'rojo' }),
+    carta({ id: 'w', tipo: 'comodin', color: null }),
+  ];
+  const e = estado({ jugadores: [jugador('yo', mano)], descarte: [cima], colorActual: 'rojo' });
+  assert.equal(cartaLegal(mano[1], e, mano), true);
 });
 
 test('+4 legal si no tienes el color', () => {
@@ -115,6 +125,30 @@ test('jugar carta avanza y deja el descarte', () => {
   assert.equal(r.ok, true);
   assert.equal(e.descarte[e.descarte.length - 1].id, 'a');
   assert.equal(e.turnoIndex, 1);
+});
+
+test('robar hasta poder: una por una y sigues si no pega', () => {
+  const cima = carta({ id: 'c', tipo: 'numero', valor: 2, color: 'rojo' });
+  const mano = [carta({ id: 'x', tipo: 'numero', valor: 9, color: 'azul' })];
+  const noPega = carta({ id: 'n', tipo: 'numero', valor: 4, color: 'verde' });
+  const siPega = carta({ id: 's', tipo: 'numero', valor: 2, color: 'amarillo' });
+  const e = estado({
+    jugadores: [jugador('yo', mano), jugador('otro', [carta({ id: 'o', tipo: 'numero', valor: 1, color: 'azul' })])],
+    descarte: [cima],
+    colorActual: 'rojo',
+    mazo: [noPega, siPega],
+    turnoIndex: 0,
+    reglas: { ...REGLAS_DEFAULT, robarHastaJugar: true },
+  });
+  const a = robarCarta(e, 'yo');
+  assert.equal(a.ok, true);
+  assert.equal(e.jugadores[0].cartas.length, 2);
+  assert.equal(e.turnoIndex, 0);
+  assert.equal(e.acabaDeRobarId, undefined);
+  const b = robarCarta(e, 'yo');
+  assert.equal(b.ok, true);
+  assert.equal(e.jugadores[0].cartas.length, 3);
+  assert.equal(e.acabaDeRobarId, 'yo');
 });
 
 test('después de tomar una jugable no puedes tomar otra', () => {

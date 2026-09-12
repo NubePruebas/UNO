@@ -27,6 +27,7 @@ export function CartaVista({
   jugable,
   daltonico,
   apilada,
+  recien,
   onClick,
 }: {
   carta?: Carta;
@@ -37,6 +38,7 @@ export function CartaVista({
   jugable?: boolean;
   daltonico?: boolean;
   apilada?: boolean;
+  recien?: boolean;
   onClick?: () => void;
 }) {
   function click() {
@@ -70,7 +72,7 @@ export function CartaVista({
   return (
     <button
       type="button"
-      className={`carta ${color} ${grande ? 'grande' : ''} ${mini ? 'mini' : ''} ${jugable ? 'jugable' : ''} ${daltonico ? 'daltonico' : ''} ${apilada ? 'apilada' : ''}`}
+      className={`carta ${color} ${grande ? 'grande' : ''} ${mini ? 'mini' : ''} ${jugable ? 'jugable' : ''} ${daltonico ? 'daltonico' : ''} ${apilada ? 'apilada' : ''} ${recien ? 'recien' : ''}`}
       onClick={onClick ? click : undefined}
       disabled={!onClick}
       title={titulo}
