@@ -385,8 +385,9 @@ export function Mesa({
       {deboResolverMas4 && (
         <div className="banner">
           <p>
-            Te tiraron un +4{estado.acumuladoMas ? ` (pila ${estado.acumuladoMas})` : ''}. Si desafías y era trampa, toma
-            el otro; si era legal, tú tomas {Math.max(estado.acumuladoMas, 4) + 2}.
+            Te tiraron un +4{estado.acumuladoMas ? ` (pila ${estado.acumuladoMas})` : ''}. Puedes apilar un +2 o +4,
+            desafiar, o tomar. Si desafías y era trampa, toma el otro; si era legal, tú tomas{' '}
+            {Math.max(estado.acumuladoMas, 4) + 2}.
           </p>
           <button type="button" className="btn peligro" onClick={() => void api.resolverMas4(true)}>
             Desafiar

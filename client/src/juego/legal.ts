@@ -2,7 +2,7 @@ import type { Carta, ColorCarta, EstadoPublico } from '../types';
 
 export function cartaLegal(carta: Carta, estado: EstadoPublico): boolean {
   if ((estado.acumuladoMas ?? 0) > 0 && estado.tipoPila) {
-    return carta.tipo === estado.tipoPila;
+    return carta.tipo === 'mas2' || carta.tipo === 'comodin_mas4';
   }
   const cima = estado.cima;
   if (!cima || !estado.colorActual) return false;

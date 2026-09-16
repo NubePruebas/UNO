@@ -163,9 +163,12 @@ export function ejecutarTurnoBot(estado: EstadoPartida): boolean {
     const victima = estado.jugadores.find((j) => j.id === estado.desafiarMas4?.jugadorId);
     if (!victima || !juegaComoBot(victima)) return false;
     if (estado.reglas.apilarMas) {
-      const plus = victima.cartas.find((c) => c.tipo === 'comodin_mas4');
+      const plus =
+        victima.cartas.find((c) => c.tipo === 'comodin_mas4') ??
+        victima.cartas.find((c) => c.tipo === 'mas2');
       if (plus && (victima.nivelBot === 'dificil' || Math.random() < 0.4)) {
-        jugarCarta(estado, victima.id, plus.id, { color: colorInteligente(victima, estado) });
+        const color = plus.tipo === 'comodin_mas4' ? colorInteligente(victima, estado) : undefined;
+        jugarCarta(estado, victima.id, plus.id, { color });
         return true;
       }
     }
@@ -178,7 +181,9 @@ export function ejecutarTurnoBot(estado: EstadoPartida): boolean {
   if (!jugador || !juegaComoBot(jugador)) return false;
 
   if ((estado.acumuladoMas || 0) > 0) {
-    const pila = jugador.cartas.find((c) => c.tipo === estado.tipoPila);
+    const pila =
+      jugador.cartas.find((c) => c.tipo === 'comodin_mas4') ??
+      jugador.cartas.find((c) => c.tipo === 'mas2');
     if (pila && (jugador.nivelBot !== 'facil' || Math.random() < 0.55)) {
       const color = pila.tipo === 'comodin_mas4' ? colorInteligente(jugador, estado) : undefined;
       jugarCarta(estado, jugador.id, pila.id, { color });

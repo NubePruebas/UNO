@@ -10,9 +10,13 @@ import {
 } from '../types';
 import { barajar, crearMazo, reponerMazo } from './mazo';
 
+function esCartaDePila(carta: Carta): boolean {
+  return carta.tipo === 'mas2' || carta.tipo === 'comodin_mas4';
+}
+
 export function cartaLegal(carta: Carta, estado: EstadoPartida, _mano: Carta[]): boolean {
   if ((estado.acumuladoMas ?? 0) > 0 && estado.tipoPila) {
-    return carta.tipo === estado.tipoPila;
+    return esCartaDePila(carta);
   }
   const cima = estado.descarte[estado.descarte.length - 1];
   if (!cima) return false;
@@ -260,7 +264,8 @@ export function aplicarEfecto(estado: EstadoPartida, carta: Carta, jugadorId: st
     if (estado.reglas.apilarMas) {
       estado.acumuladoMas = (estado.acumuladoMas || 0) + 2;
       estado.tipoPila = 'mas2';
-      log(estado, `Pila +${estado.acumuladoMas}. El siguiente apila o toma.`);
+      estado.desafiarMas4 = undefined;
+      log(estado, `Pila +${estado.acumuladoMas}. El siguiente apila (+2 o +4) o toma.`);
       avanzarTurno(estado, 1);
       return;
     }
@@ -277,7 +282,7 @@ export function aplicarEfecto(estado: EstadoPartida, carta: Carta, jugadorId: st
     if (estado.reglas.apilarMas) {
       estado.acumuladoMas = (estado.acumuladoMas || 0) + 4;
       estado.tipoPila = 'comodin_mas4';
-      log(estado, `Pila +${estado.acumuladoMas}. ${victima.nombre} puede apilar, desafiar o tomar.`);
+      log(estado, `Pila +${estado.acumuladoMas}. ${victima.nombre} puede apilar (+2 o +4), desafiar o tomar.`);
     } else {
       log(estado, `${victima.nombre} puede desafiar el +4 o tomarlo.`);
     }
@@ -371,10 +376,6 @@ export function jugarCarta(
   if (estado.pendienteIntercambioDe && estado.pendienteIntercambioDe !== jugadorId) {
     return { ok: false, error: 'Espera el intercambio del 7.' };
   }
-  if (estado.desafiarMas4 && !(estado.reglas.apilarMas && estado.tipoPila === 'comodin_mas4')) {
-    return { ok: false, error: 'Hay que resolver el desafío del +4.' };
-  }
-
   const jugador = estado.jugadores.find((j) => j.id === jugadorId);
   if (!jugador) return { ok: false, error: 'Jugador no encontrado.' };
 
@@ -383,6 +384,13 @@ export function jugarCarta(
   const idx = jugador.cartas.findIndex((c) => c.id === cartaId);
   if (idx < 0) return { ok: false, error: 'No tienes esa carta.' };
   const carta = jugador.cartas[idx];
+
+  if (estado.desafiarMas4) {
+    const puedeApilar = estado.reglas.apilarMas && esCartaDePila(carta);
+    if (!puedeApilar) {
+      return { ok: false, error: 'Hay que resolver el desafío del +4.' };
+    }
+  }
 
   if (!esTurno) {
     if (!estado.reglas.jumpIn) return { ok: false, error: 'No es tu turno.' };

@@ -87,19 +87,36 @@ test('+4 legal si no tienes el color', () => {
   assert.equal(cartaLegal(mano[1], e, mano), true);
 });
 
-test('pila +2 solo acepta otro +2', () => {
+test('pila +2 acepta +2 o +4', () => {
   const cima = carta({ id: 'c', tipo: 'mas2', color: 'rojo' });
   const mas2 = carta({ id: 'a', tipo: 'mas2', color: 'azul' });
+  const mas4 = carta({ id: 'w', tipo: 'comodin_mas4', color: null });
   const num = carta({ id: 'b', tipo: 'numero', valor: 4, color: 'rojo' });
   const e = estado({
-    jugadores: [jugador('yo', [mas2, num])],
+    jugadores: [jugador('yo', [mas2, mas4, num])],
     descarte: [cima],
     acumuladoMas: 2,
     tipoPila: 'mas2',
     reglas: { ...REGLAS_DEFAULT, apilarMas: true },
   });
-  assert.equal(cartaLegal(mas2, e, [mas2, num]), true);
-  assert.equal(cartaLegal(num, e, [mas2, num]), false);
+  assert.equal(cartaLegal(mas2, e, [mas2, mas4, num]), true);
+  assert.equal(cartaLegal(mas4, e, [mas2, mas4, num]), true);
+  assert.equal(cartaLegal(num, e, [mas2, mas4, num]), false);
+});
+
+test('pila +4 acepta +2 o +4', () => {
+  const cima = carta({ id: 'c', tipo: 'comodin_mas4', color: 'verde' });
+  const mas2 = carta({ id: 'a', tipo: 'mas2', color: 'azul' });
+  const mas4 = carta({ id: 'w', tipo: 'comodin_mas4', color: null });
+  const e = estado({
+    jugadores: [jugador('yo', [mas2, mas4])],
+    descarte: [cima],
+    acumuladoMas: 4,
+    tipoPila: 'comodin_mas4',
+    reglas: { ...REGLAS_DEFAULT, apilarMas: true },
+  });
+  assert.equal(cartaLegal(mas2, e, [mas2, mas4]), true);
+  assert.equal(cartaLegal(mas4, e, [mas2, mas4]), true);
 });
 
 test('jump-in: carta idéntica', () => {
