@@ -68,23 +68,6 @@ input {
   overflow: hidden;
 }
 
-.marca {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-
-.marca-portada {
-  display: block;
-  width: min(72vw, 280px);
-  height: auto;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 28px;
-  border: 4px solid #fff;
-  box-shadow: 0 18px 40px #0007, 0 0 0 3px #1118;
-}
-
 .marca h1 {
   margin: 0;
   font-size: 4rem;
@@ -96,7 +79,7 @@ input {
 
 .marca p {
   text-align: center;
-  margin: 0 0 16px;
+  margin: 0 0 24px;
   opacity: 0.85;
 }
 
@@ -104,7 +87,7 @@ input {
   letter-spacing: 0.4em;
   font-size: 0.75rem;
   font-weight: 800;
-  margin: 0 !important;
+  margin: 0 0 4px !important;
   opacity: 0.7;
 }
 
@@ -205,15 +188,9 @@ input {
   font-size: 0.85rem;
 }
 
-.marca.compacta {
-  gap: 4px;
-  margin-bottom: 4px;
-}
-.marca.compacta .marca-portada {
-  width: min(28vw, 88px);
-  border-radius: 16px;
-  border-width: 3px;
-  box-shadow: 0 8px 18px #0005;
+.marca.compacta h1 {
+  font-size: 1.6rem;
+  margin: 0 0 8px;
 }
 .marca.compacta p,
 .marca.compacta .marca-sello {
@@ -757,7 +734,7 @@ button.carta {
 .chip-color.azul { background: var(--azul); }
 
 @media (max-width: 720px) {
-  .marca-portada { width: min(58vw, 220px); border-radius: 22px; }
+  .marca h1 { font-size: 2.4rem; }
   .marca p { margin-bottom: 12px; font-size: 0.95rem; }
   .carta { width: 54px; height: 78px; }
   .carta.grande { width: 66px; height: 96px; }
@@ -1520,7 +1497,7 @@ button.carta {
 }
 
 @media (max-width: 400px) {
-  .marca-portada { width: min(52vw, 180px); }
+  .marca h1 { font-size: 2.1rem; }
   .carta { width: 48px; height: 70px; }
   .carta.grande { width: 58px; height: 84px; }
   .pila-descarte { width: 58px; height: 84px; }
@@ -1561,7 +1538,7 @@ button.carta {
     font-size: 0.6rem;
   }
   .feltro { inset: 4% 8% 8%; }
-  .menu-juego .marca-portada { width: min(22vw, 72px); }
+  .menu-juego .marca h1 { font-size: 1.6rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
