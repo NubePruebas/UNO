@@ -157,7 +157,14 @@ export function Inicio({
       {(vista === 'titulo' || vista === 'jugar') && (
         <div className={`marca ${vista === 'titulo' ? '' : 'compacta'}`}>
           <p className="marca-sello">EN LÍNEA</p>
-          <h1>KROMA</h1>
+          <img
+            className="marca-portada"
+            src="/portada.jpg"
+            alt="Kroma"
+            width={512}
+            height={512}
+            decoding="async"
+          />
           {vista === 'titulo' && <p>Cuatro colores. Juega con tus amigos.</p>}
         </div>
       )}
